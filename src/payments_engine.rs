@@ -2,29 +2,37 @@ use std::{error::Error, fs::File};
 
 use csv::Reader;
 
-use crate::models::{account::{Account, Accounts}, transaction::Transaction};
+use crate::models::{
+    account::{Account, Accounts},
+    shared::OID,
+    transaction::Transaction,
+};
 
+#[derive(Default)]
 pub struct PaymentsEngine {}
 
 impl PaymentsEngine {
-    pub fn process_transactions_from(mut reader: Reader<File>) -> Result<Accounts, Box<dyn Error>> {
+    pub fn get_assured_account_mut<'a>(
+        &self,
+        accounts_by_client_id: &'a mut Accounts,
+        client_id: OID,
+    ) -> &'a mut Account {
+        accounts_by_client_id
+            .entry(client_id)
+            .or_insert(Account::new(client_id))
+    }
+
+    pub fn process_transactions_from(
+        &self,
+        mut reader: Reader<File>,
+    ) -> Result<Accounts, Box<dyn Error>> {
         let mut accounts_by_client_id = Accounts::default();
         for tx in reader.deserialize::<Transaction>() {
-            // println!("TX: {:?}", tx?);
             let transaction = tx?;
-
-            match accounts_by_client_id.get_mut(&transaction.client_id) {
-              None => {
-                // The account wasn't found. Lets lazily add it here.
-                accounts_by_client_id.insert(transaction.client_id, Account::new(transaction.client_id));
-
-              },
-              Some(_) => {
-                // There was an account already
-              }
-            };
-        };
-
+            let account =
+                self.get_assured_account_mut(&mut accounts_by_client_id, transaction.client_id);
+            account.process(transaction)?
+        }
         Ok(accounts_by_client_id)
     }
 }
