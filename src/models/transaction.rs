@@ -14,7 +14,7 @@ pub enum TransactionType {
 
 #[derive(Debug, Deserialize)]
 pub struct Transaction {
-    tx_type: TransactionType,
+    pub tx_type: TransactionType,
     pub client_id: OID,
     pub tx_id: OID,
     #[serde(deserialize_with = "decimal_from_string")]
