@@ -5,6 +5,8 @@ use std::{
 
 use csv::{Reader, ReaderBuilder, Trim};
 
+use crate::transactions::Transaction;
+
 #[derive(Debug)]
 pub enum InvalidInput {
     MissingInputFilename,
@@ -20,18 +22,14 @@ impl fmt::Display for InvalidInput {
 
 impl error::Error for InvalidInput {}
 
-pub fn transactions_reader() -> Result<Reader<File>, InvalidInput> {
-    get_transactions_reader(input_filename()?)
-}
-
 // We expect to run the program like:
 // cargo run -- transactions.csv > accounts.csv
 // Hence we use the first argument as input filename.
-fn get_input_filename() -> Option<String> {
+pub fn get_input_filename() -> Option<String> {
     env::args().nth(1)
 }
 
-fn input_filename() -> Result<String, InvalidInput> {
+pub fn input_filename() -> Result<String, InvalidInput> {
     match get_input_filename() {
         None => Err(InvalidInput::MissingInputFilename),
         Some(filename) => {
@@ -44,8 +42,7 @@ fn input_filename() -> Result<String, InvalidInput> {
     }
 }
 
-fn get_transactions_reader(filename: String) -> Result<Reader<File>, InvalidInput> {
-    let path = filename;
+pub fn get_csv_reader(path: String) -> Result<Reader<File>, InvalidInput> {
     let reader = ReaderBuilder::new()
         .has_headers(false)
         .trim(Trim::All)
