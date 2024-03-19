@@ -5,8 +5,6 @@ use std::{
 
 use csv::{Reader, ReaderBuilder, Trim};
 
-use crate::transactions::Transaction;
-
 #[derive(Debug)]
 pub enum InvalidInput {
     MissingInputFilename,
