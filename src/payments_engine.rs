@@ -29,10 +29,18 @@ impl PaymentsEngine {
         let mut accounts_by_client_id = Accounts::default();
         for tx in reader.deserialize::<Transaction>() {
             let transaction = tx?;
-            let account =
-                self.get_assured_account_mut(&mut accounts_by_client_id, transaction.client_id);
-            account.process(transaction)?
+            self.process(transaction, &mut accounts_by_client_id)?;
         }
         Ok(accounts_by_client_id)
+    }
+
+    pub fn process(
+        &self,
+        transaction: Transaction,
+        accounts: &mut Accounts,
+    ) -> Result<(), Box<dyn Error>> {
+        let account = self.get_assured_account_mut( accounts, transaction.client_id);
+        account.process(transaction)?;
+        Ok(())
     }
 }

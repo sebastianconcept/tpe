@@ -11,15 +11,23 @@ pub type Accounts = HashMap<OID, Account>;
 #[derive(Debug)]
 pub struct Account {
     client_id: OID,
-    amount: Amount,
+    total: Amount,
+    held: Amount,
+    locked: bool
 }
 
 impl Account {
     pub fn new(client_id: OID) -> Self {
         Self {
             client_id,
-            amount: Amount::from(0),
+            total: Amount::from(0),
+            held: Amount::from(0),
+            locked: false,
         }
+    }
+
+    pub fn get_available(&self) -> Amount {
+        self.total - self.held
     }
 
     pub fn process(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
