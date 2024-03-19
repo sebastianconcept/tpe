@@ -1,5 +1,5 @@
 pub mod payments_engine;
-pub mod input_digestion;
+pub mod input_ingestion;
 
 #[cfg(test)]
 mod tests;

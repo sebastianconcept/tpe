@@ -1,5 +1,5 @@
 
 #[test]
-fn can_run_test_case() {;
+fn can_digest_input_for_case1() {
     assert!(true);
 }
