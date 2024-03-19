@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error};
 
-use crate::models::transaction::TransactionType;
+use crate::models::transaction::{TransactionError, TransactionType};
 
 use super::{
     shared::{Amount, OID},
@@ -13,7 +13,7 @@ pub struct Account {
     client_id: OID,
     total: Amount,
     held: Amount,
-    locked: bool
+    locked: bool,
 }
 
 impl Account {
@@ -30,11 +30,7 @@ impl Account {
         self.total - self.held
     }
 
-    pub fn process(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
-        // println!(
-        //     "Account {} needs to process tx {:?} ID {}",
-        //     self.client_id, tx.tx_type, tx.tx_id
-        // );
+    pub fn process(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         match tx.tx_type {
             TransactionType::Deposit => self.process_deposit(tx)?,
             TransactionType::Withdrawal => self.process_withdrawal(tx)?,
@@ -45,24 +41,60 @@ impl Account {
         Ok(())
     }
 
-    fn process_deposit(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
+    fn process_deposit(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         println!("Deposit ID {} for account {}", tx.tx_id, self.client_id);
+        if self.locked {
+            return Err(TransactionError::LockedAccount);
+        }
+        self.total += tx.amount;
+        println!(
+            "Deposit ID {} amount {} => account: {:?}",
+            tx.tx_id, tx.amount, self
+        );
+
         Ok(())
     }
-    fn process_withdrawal(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
+    fn process_withdrawal(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         println!("Withdrawal ID {} for account {}", tx.tx_id, self.client_id);
+        if self.locked {
+            return Err(TransactionError::LockedAccount);
+        }
+        if self.get_available() < tx.amount {
+            return Err(TransactionError::InsufficientFunds);
+        }
+
+        self.total -= tx.amount;
+        println!(
+            "Withdrawal ID {} amount {} => account: {:?}",
+            tx.tx_id, tx.amount, self
+        );
         Ok(())
     }
-    fn process_dispute(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
+    fn process_dispute(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         println!("Dispute ID {} for account {}", tx.tx_id, self.client_id);
+        if self.locked {
+            return Err(TransactionError::LockedAccount);
+        }
+        if self.get_available() < tx.amount {
+            return Err(TransactionError::InsufficientFunds);
+        }
+        self.held += tx.amount;
         Ok(())
     }
-    fn process_resolve(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
+    fn process_resolve(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         println!("Resolve ID {} for account {}", tx.tx_id, self.client_id);
+        if self.locked {
+            return Err(TransactionError::LockedAccount);
+        }        
+        self.held -= tx.amount;
         Ok(())
     }
-    fn process_chargeback(&mut self, tx: Transaction) -> Result<(), Box<dyn Error>> {
+    fn process_chargeback(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         println!("Chargeback ID {} for account {}", tx.tx_id, self.client_id);
+        if self.locked {
+            return Err(TransactionError::LockedAccount);
+        }
+        self.locked = true;
         Ok(())
     }
 }
