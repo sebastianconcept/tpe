@@ -41,7 +41,12 @@ impl PaymentsEngine {
         transactions_by_id: &mut Transactions,
     ) -> Result<(), Box<dyn Error>> {
         for tx in reader.deserialize::<Transaction>() {
-            self.process(tx?, accounts_by_client_id, transactions_by_id)?
+            match tx {
+                Ok(t) => self.process(t, accounts_by_client_id, transactions_by_id)?,
+                Err(_err) => {
+                    // Ignoring transactions that had an issue on parsing
+                }
+            }
         }
         Ok(())
     }
