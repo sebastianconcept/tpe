@@ -1,10 +1,15 @@
-use std::{error, fmt};
+use std::{collections::HashMap, error, fmt};
 
-use crate::models::shared::{Amount, OID};
+use crate::models::shared::Amount;
 use fraction::Decimal;
 use serde::{Deserialize, Deserializer};
 
-#[derive(Debug, Deserialize)]
+use super::shared::{ClientID, TransactionID};
+
+// An index to reach transactions by transaction ID
+pub type Transactions = HashMap<TransactionID, Transaction>;
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Deposit,
@@ -14,43 +19,56 @@ pub enum TransactionType {
     Chargeback,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Transaction {
     pub tx_type: TransactionType,
-    pub client_id: OID,
-    pub tx_id: OID,
+    pub client_id: ClientID,
+    pub tx_id: TransactionID,
     #[serde(deserialize_with = "decimal_from_string")]
-    pub amount: Amount,
+    pub amount: Option<Amount>,
 }
 
 // Helps SerDe to deserialize the expected float amounts found as string into a fraction::Decimal
-fn decimal_from_string<'de, D>(deserializer: D) -> Result<Amount, D::Error>
+fn decimal_from_string<'de, D>(deserializer: D) -> Result<Option<Amount>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
+    if s.is_empty() {
+        // There are entries that will not deserialize an amount value.
+        // So far these are: Dispute, Resolve and Chargeback
+        return Ok(None);
+    }
     let float = match s.parse::<f64>() {
         Ok(val) => Ok(val),
-        Err(err) => Err(err).map_err(serde::de::Error::custom),
+        Err(err) => Err(serde::de::Error::custom(err)),
     };
-    Ok(Decimal::from(float?))
+    Ok(Some(Decimal::from(float?)))
 }
 
 #[derive(Debug)]
-pub enum TransactionError {
-    InsufficientFunds,
-    LockedAccount
+pub enum TransactionProcessingError {
+    InsufficientFunds((TransactionID, Amount)),
+    TargetAccountLocked(TransactionID),
+    NotFound(TransactionID),
 }
-impl error::Error for TransactionError {}
+impl error::Error for TransactionProcessingError {}
 
-impl fmt::Display for TransactionError {
+impl fmt::Display for TransactionProcessingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            TransactionError::LockedAccount => {
-                write!(f, "This account is locked")
+            TransactionProcessingError::NotFound(tx_id) => {
+                write!(f, "Unable to process, transaction not found. Assuming partner's data inconsistency.")
             }
-            TransactionError::InsufficientFunds => {
-                write!(f, "Insufficient funds to complete transaction")
+            TransactionProcessingError::TargetAccountLocked(tx_id) => {
+                write!(f, "Unable to process, target account is locked")
+            }
+            TransactionProcessingError::InsufficientFunds((tx_id, val)) => {
+                write!(
+                    f,
+                    "Insufficient funds to process {:.4} in transaction {}",
+                    val, tx_id
+                )
             }
         }
     }

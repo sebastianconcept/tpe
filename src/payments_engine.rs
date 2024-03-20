@@ -4,8 +4,8 @@ use csv::Reader;
 
 use crate::models::{
     account::{Account, Accounts},
-    shared::OID,
-    transaction::Transaction,
+    shared::ClientID,
+    transaction::{Transaction, Transactions},
 };
 
 #[derive(Default)]
@@ -15,7 +15,7 @@ impl PaymentsEngine {
     pub fn get_assured_account_mut<'a>(
         &self,
         accounts_by_client_id: &'a mut Accounts,
-        client_id: OID,
+        client_id: ClientID,
     ) -> &'a mut Account {
         accounts_by_client_id
             .entry(client_id)
@@ -27,9 +27,9 @@ impl PaymentsEngine {
         mut reader: Reader<File>,
     ) -> Result<Accounts, Box<dyn Error>> {
         let mut accounts_by_client_id = Accounts::default();
+        let mut transactions_by_id = Transactions::default();
         for tx in reader.deserialize::<Transaction>() {
-            let transaction = tx?;
-            self.process(transaction, &mut accounts_by_client_id)?;
+            self.process(tx?, &mut accounts_by_client_id, &mut transactions_by_id)?
         }
         Ok(accounts_by_client_id)
     }
@@ -38,9 +38,10 @@ impl PaymentsEngine {
         &self,
         transaction: Transaction,
         accounts: &mut Accounts,
+        transactions: &mut Transactions,
     ) -> Result<(), Box<dyn Error>> {
-        let account = self.get_assured_account_mut( accounts, transaction.client_id);
-        account.process(transaction)?;
+        let account = self.get_assured_account_mut(accounts, transaction.client_id);
+        account.process(transaction, transactions)?;
         Ok(())
     }
 }

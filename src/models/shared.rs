@@ -4,5 +4,7 @@ use fraction::Decimal;
 // and consider rounding as a presentation concern.
 pub type Amount = Decimal;
 
-// Let's say u64 are okay values for hypergrowth at this time :)
-pub type OID = u64;
+pub type TransactionID = u64;
+
+// As specified by Rust Test.pdf
+pub type ClientID = u16;
