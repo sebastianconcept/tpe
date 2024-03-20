@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error, fmt};
 
 use crate::models::shared::Amount;
-use fraction::Decimal;
+use fraction::{Decimal, Zero};
 use serde::{Deserialize, Deserializer};
 
 use super::shared::{ClientID, TransactionID};
@@ -39,11 +39,31 @@ where
         // So far these are: Dispute, Resolve and Chargeback
         return Ok(None);
     }
-    let float = match s.parse::<f64>() {
-        Ok(val) => Ok(val),
-        Err(err) => Err(serde::de::Error::custom(err)),
-    };
-    Ok(Some(Decimal::from(float?)))
+    match s.parse::<f64>() {
+        Ok(val) => {
+            let decimal = Decimal::from(val);
+            if decimal < Decimal::zero() {
+                return Err(serde::de::Error::custom(
+                    TransactionDeserializingError::NegativeAmount(val),
+                ));
+            }
+            Ok(Some(decimal))
+        }
+        Err(_err) => Err(serde::de::Error::custom(
+            TransactionDeserializingError::UnableToParseAsFloat(s),
+        )),
+    }
+}
+
+pub enum TransactionDeserializingError {
+    UnableToParseAsFloat(String),
+    NegativeAmount(f64),
+}
+
+impl fmt::Display for TransactionDeserializingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "amount must be positive")
+    }
 }
 
 #[derive(Debug)]
@@ -58,10 +78,10 @@ impl fmt::Display for TransactionProcessingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             TransactionProcessingError::NotFound(tx_id) => {
-                write!(f, "Unable to process, transaction not found. Assuming partner's data inconsistency.")
+                write!(f, "Unable to process {}, transaction not found. Assuming partner's data inconsistency.", tx_id)
             }
             TransactionProcessingError::TargetAccountLocked(tx_id) => {
-                write!(f, "Unable to process, target account is locked")
+                write!(f, "Unable to process {}, target account is locked", tx_id)
             }
             TransactionProcessingError::InsufficientFunds((tx_id, val)) => {
                 write!(

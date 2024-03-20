@@ -16,6 +16,16 @@ As the whole processing goes on, the accounts are maintained in a consistent sta
 
 At the end of the processing, an iteration to render these account entries is what produces the output format as expected.
 
+## Input assupmtions
+As per exercise specification, `ClientID` is `u16` and `TransactionID` is `u32` while the amount value is a `String` representing a real positive number with 4 digits. 
+Any negative amount in the records of the input will be considered as an inconsistency coming from the partner and if such case occurs, the deserializer on the field will return a `None` and the `Reader` will return a specific `Err` that is handled so the processing can continue efficiently.
+
+Repeated deposits and withdrawals on the same transactions are ignored, only their first occurrence is taken as valid and computed.
+
+Repeated chargebacks on a `TransactionID` cannot occur because any attempt will encounter a frozen account.
+
+Repeated disputes cannot occur because any attempt will encounter a frozen account.
+
 ## On input digestion
 For the deserialization part of digesting input, I've decided to use Serde and csv as suggested as they are well known robust and well maintained crates.
 
@@ -42,9 +52,21 @@ Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a 
 4. What happens when a `Transaction` has 2 chargebacks? or more than two.
 5. What happens when a `Transaction` is repeated (same `TransactionID`, same `ClientID` and same `Amount`)?
 6. What happens when a `Transaction` is repeated (same `TransactionID`, same `ClientID` and *different* `Amount`)?
+7. What happens when the `TransactionID` in a dispute corresponds to a `ClientID` that is not the same? The spec states that the tx in a dispute could not exist and be safely ignored but it doesn't clarify anything about being about a different `ClientID`.
 
 ## Recommendations
 
 To make this processing engine more scalable, streaming the input via a networked service would be advisable. There are many options and protocols for that. If based on HTTP, [Axum](https://github.com/tokio-rs/axum) and [hyper](https://github.com/hyperium/hyper) are both based on the [Tokio](https://github.com/tokio-rs/tokio) runtime which is a great technical foundation for safe and efficient asynchronous and multithread code.
 
 That brings the efficiency and ability to take advantage of using multi-core CPUs and some added complexity to make that safe. The structures holding the accounts and transactions, that in this program are `HashMap`s should be used behind protection like `Mutex` or `RsLock` to be safe. Or, still protected, made a separate networked, hence shared, service altogether growing in a different host that operations can scale up/down. If the requirements are even bigger volumes than what one host can process, then ideas like Deterministic Sharding for efficient horizontal scaling should be explored.
+
+
+## To do
+- ~~Add first unit tests~~
+- ~~Make specific error variant for deserializing a negative number~~
+- Make it render output
+- Clean println! entries used for debug
+- Add sequence diagram
+- Ignore repeated deposits in the same `TransactionID`
+- Unless resolved, ignore repeated disputes on the same `TransactionID`
+- Decide on what to do if a dispute has diverging `ClientID`
