@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Output};
+use std::collections::HashMap;
 
 use crate::models::transaction::{TransactionProcessingError, TransactionType};
 
@@ -64,7 +64,6 @@ impl Account {
             Some(val) => {
                 // Adds the deposit transaction amount to the total 👀
                 self.total += val;
-                let tx_id = tx.tx_id;
                 transactions.insert(tx.tx_id, tx);
                 Ok(())
             }
@@ -89,7 +88,6 @@ impl Account {
                 }
                 // Subtracts the withdrawal transaction amount from the total 👀
                 self.total -= val;
-                let tx_id = tx.tx_id;
                 transactions.insert(tx.tx_id, tx);
                 Ok(())
             }
