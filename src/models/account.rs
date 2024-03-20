@@ -59,7 +59,7 @@ impl Account {
     ) -> Result<(), TransactionProcessingError> {
         match tx.amount {
             None => {
-                unreachable!()
+                unreachable!("There is always a valid amount for deposits")
             }
             Some(val) => {
                 // Adds the deposit transaction amount to the total 👀
@@ -77,7 +77,7 @@ impl Account {
     ) -> Result<(), TransactionProcessingError> {
         match tx.amount {
             None => {
-                unreachable!()
+                unreachable!("There is always a valid amount for withdrawals")
             }
             Some(val) => {
                 if val > self.get_available() {
@@ -112,7 +112,9 @@ impl Account {
                     // Disputed, hence increase in val the value held 👀
                     self.held += val;
                 } else {
-                    unreachable!();
+                    unreachable!(
+                        "There is always a valid amount for transactions aimed by a dispute"
+                    );
                 }
                 Ok(())
             }
@@ -131,7 +133,9 @@ impl Account {
                     // Resolved, hence decrease in val the value held 👀
                     self.held -= val;
                 } else {
-                    unreachable!();
+                    unreachable!(
+                        "There is always a valid amount for transactions aimed by a resolution"
+                    );
                 }
                 Ok(())
             }
@@ -153,7 +157,9 @@ impl Account {
                     self.held -= val;
                     self.locked = true;
                 } else {
-                    unreachable!();
+                    unreachable!(
+                        "There is always a valid amount for transactions aimed by a chargeback"
+                    );
                 }
                 Ok(())
             }

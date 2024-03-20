@@ -47,10 +47,7 @@ fn can_parse_one_deposit_with_negative_ammount() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    match reader.deserialize::<Transaction>().next().unwrap() {
-        Ok(_) => unreachable!(),
-        Err(_e) => assert!(true),
-    }
+    assert!(reader.deserialize::<Transaction>().next().unwrap().is_err())
 }
 
 #[test]
