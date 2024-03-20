@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, process::Output};
 
 use crate::models::transaction::{TransactionProcessingError, TransactionType};
 
@@ -57,7 +57,6 @@ impl Account {
         tx: Transaction,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        println!("Deposit ID {} for account {}", tx.tx_id, self.client_id);
         match tx.amount {
             None => {
                 unreachable!()
@@ -67,10 +66,6 @@ impl Account {
                 self.total += val;
                 let tx_id = tx.tx_id;
                 transactions.insert(tx.tx_id, tx);
-                println!(
-                    "Withdrawal ID {} amount {} => account: {:?}",
-                    tx_id, val, self
-                );
                 Ok(())
             }
         }
@@ -81,7 +76,6 @@ impl Account {
         tx: Transaction,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        println!("Withdrawal ID {} for account {}", tx.tx_id, self.client_id);
         match tx.amount {
             None => {
                 unreachable!()
@@ -97,10 +91,6 @@ impl Account {
                 self.total -= val;
                 let tx_id = tx.tx_id;
                 transactions.insert(tx.tx_id, tx);
-                println!(
-                    "Withdrawal ID {} amount {} => account: {:?}",
-                    tx_id, val, self
-                );
                 Ok(())
             }
         }
@@ -111,11 +101,6 @@ impl Account {
         tx: Transaction,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        println!(
-            "Dispute TransactionID {} for account ClientID {}",
-            tx.tx_id, self.client_id
-        );
-
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
@@ -141,7 +126,6 @@ impl Account {
         tx: Transaction,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        println!("Resolve ID {} for account {}", tx.tx_id, self.client_id);
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
@@ -161,7 +145,6 @@ impl Account {
         tx: Transaction,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        println!("Chargeback ID {} for account {}", tx.tx_id, self.client_id);
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
@@ -177,5 +160,19 @@ impl Account {
                 Ok(())
             }
         }
+    }
+
+    // Renders this account in its current state following the expected format
+    // as per `Rust Test.pdf`
+    pub fn render_as_output_line(&self) {
+        let output_line = format!(
+            "{}, {:.4}, {:.4}, {:.4}, {}",
+            self.client_id,
+            self.get_available(),
+            self.held,
+            self.total,
+            self.locked
+        );
+        println!("{}", output_line);
     }
 }

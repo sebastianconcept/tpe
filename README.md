@@ -26,6 +26,11 @@ Repeated chargebacks on a `TransactionID` cannot occur because any attempt will 
 
 Repeated disputes cannot occur because any attempt will encounter a frozen account.
 
+## Output assupmtions
+The output is of a well known format for the systems involved and headers are not present.
+
+Amounts are rendered as floats printed with 4 digits of precision.
+
 ## On input digestion
 For the deserialization part of digesting input, I've decided to use Serde and csv as suggested as they are well known robust and well maintained crates.
 
@@ -34,8 +39,46 @@ For the `Transaction` struct you'll find I've made it derive `Deserialize` but a
 Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a custom function named `decimal_from_string`. It reads the string parsing it as `f64` but returning an instantiated `Decimal` from the `fraction` crate because it promises losless fractions and decimals. This is valuable when there are lots of transactions, which with time it will happen, and `account.held` and `account.total` values can preserve precision. Any further rendering of these values, I'm taking that as a concern of a presentation layer that could, for example, decide later on how many digits to print without making the program loose any precision for its inner math.
 
 ## Processing Sequence
+Here is an example of processing a `Dispute`.
 
-[sequence diagram here]
+```
+            ┌──────────────────┐     ┌─────────────┐    ┌────────────┐ ┌───────────────┐ ┌────────────────────────────────────┐
+            │  PaymentsEngine  │     │   Reader    │    │  Account   │ │  Transaction  │ │            Transactions            │
+            └─────────┬────────┘     └──────┬──────┘    └──────┬─────┘ └───────┬───────┘ │                                    │
+                      │                     │                  │               │         │HashMap<TransactionID, Transaction> │
+                                            │                  │               │         └──────────────────┬─────────────────┘
+ process_transactions_from                  │                  │               │                            │                  
+   ──────────────────▶                      │                  │               │                            │                  
+                      │                     │                  │               │                            │                  
+                      │  deserialize::<Transaction>()          │               │                            │                  
+                      ├────────────────────▶│                  │               │                            │                  
+                      │◀────────────────────┤                  │               │                            │                  
+                      │                     │                  │               │                            │                  
+                      │───┐                 │                  │               │                            │                  
+                      │   │process(tx?                         │               │                            │                  
+                      │   │    , &mut accounts_by_client_id    │               │                            │                  
+                      │◀──│    , &mut transactions_by_id)?     │               │                            │                  
+                      │                     │                  │               │                            │                  
+                      │              process(tx, transactions) │               │                            │                  
+                      │─────────────────────┼─────────────────▶│               │                            │                  
+                      │                     │                  │───┐process_dispute(                        │                  
+                      │                     │                  │   │    tx: Transaction,                    │                  
+                      │                     │                  │   │    transactions: &mut Transactions)    │                  
+                      │                     │                  │◀──│           │                            │                  
+                      │                     │                  │               │   get(tx.tx_id)            │                  
+                      │                     │                  ├───────────────┼───────────────────────────▶│                  
+                      │                     │                  │               │                            │                  
+                      │                     │                  │◀──────────────┼────────────────────────────┤                  
+                      │                     │                  │               │                            │                  
+                      │                     │                  │───┐           │                            │                  
+                      │                     │                  │   │If sufficient,                          │                  
+                      │                     │                  │   │increase value held                     │                  
+                      │                     │                  │◀──│by tx.amount                            │                  
+                      │◀────────────────────┼──────────────────│               │                            │                  
+                      │                     │                  │               │                            │                  
+                      │                     │                  │               │                            │                  
+```
+
 
 ## General design notes
 1. Input doesn't have headers. Valid input is just data without using the first row for headers.
@@ -54,19 +97,24 @@ Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a 
 6. What happens when a `Transaction` is repeated (same `TransactionID`, same `ClientID` and *different* `Amount`)?
 7. What happens when the `TransactionID` in a dispute corresponds to a `ClientID` that is not the same? The spec states that the tx in a dispute could not exist and be safely ignored but it doesn't clarify anything about being about a different `ClientID`.
 
-## Recommendations
+## Further contributions and recommendations
 
 To make this processing engine more scalable, streaming the input via a networked service would be advisable. There are many options and protocols for that. If based on HTTP, [Axum](https://github.com/tokio-rs/axum) and [hyper](https://github.com/hyperium/hyper) are both based on the [Tokio](https://github.com/tokio-rs/tokio) runtime which is a great technical foundation for safe and efficient asynchronous and multithread code.
 
-That brings the efficiency and ability to take advantage of using multi-core CPUs and some added complexity to make that safe. The structures holding the accounts and transactions, that in this program are `HashMap`s should be used behind protection like `Mutex` or `RsLock` to be safe. Or, still protected, made a separate networked, hence shared, service altogether growing in a different host that operations can scale up/down. If the requirements are even bigger volumes than what one host can process, then ideas like Deterministic Sharding for efficient horizontal scaling should be explored.
+That brings the efficiency and ability to take advantage of using multi-core CPUs and some added complexity to make that safe. 
 
+For example, the structures holding the accounts and transactions, that in this program are `HashMap`s, would need be used behind a protection wall like `Mutex` or `RwLock` to be safe. 
+
+Alternatively, these could be reached via a separate networked service shared among client programs all of them growing in different hosts that operations can scale up or down following traffic demands.
+
+If the requirements are high volume and one host cannot hold all the transactions in memory, then a design based in Deterministic Sharding for stable low-latency and efficient horizontal scaling should be explored.
 
 ## To do
 - ~~Add first unit tests~~
 - ~~Make specific error variant for deserializing a negative number~~
-- Make it render output
-- Clean println! entries used for debug
-- Add sequence diagram
-- Ignore repeated deposits in the same `TransactionID`
-- Unless resolved, ignore repeated disputes on the same `TransactionID`
+- ~~Make it render output~~
+- ~~Clean println! entries used for debug~~
+- ~~Add sequence diagram~~
+- Ignore repeated deposits in the same `TransactionID`. Add unit test.
+- Unless resolved, ignore repeated disputes on the same `TransactionID`. Add unit test.
 - Decide on what to do if a dispute has diverging `ClientID`

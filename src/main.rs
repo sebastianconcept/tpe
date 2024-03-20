@@ -10,7 +10,7 @@ fn process_input() -> Result<(), Box<dyn Error>> {
     let pe = PaymentsEngine::default();
     let accounts = pe.process_transactions_from(reader)?;
     for (client_id, account) in accounts.iter() {
-        println!("This account {:?}", account);
+        account.render_as_output_line();
     }
     Ok(())
 }
