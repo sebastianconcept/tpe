@@ -12,9 +12,9 @@ pub type Accounts = HashMap<ClientID, Account>;
 #[derive(Debug)]
 pub struct Account {
     client_id: ClientID,
-    total: Amount,
-    held: Amount,
-    locked: bool,
+    pub total: Amount,
+    pub held: Amount,
+    pub locked: bool,
 }
 
 impl Account {

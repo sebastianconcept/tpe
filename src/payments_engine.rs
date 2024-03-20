@@ -34,6 +34,18 @@ impl PaymentsEngine {
         Ok(accounts_by_client_id)
     }
 
+    pub fn process_transactions_using(
+        &self,
+        mut reader: Reader<&[u8]>,
+        accounts_by_client_id: &mut Accounts,
+        transactions_by_id: &mut Transactions,
+    ) -> Result<(), Box<dyn Error>> {
+        for tx in reader.deserialize::<Transaction>() {
+            self.process(tx?, accounts_by_client_id, transactions_by_id)?
+        }
+        Ok(())
+    }
+
     pub fn process(
         &self,
         transaction: Transaction,
