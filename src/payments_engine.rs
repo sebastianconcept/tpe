@@ -1,11 +1,11 @@
-use std::{error::Error, fs::File};
+use std::{error::Error, f32::consts::E, fs::File};
 
 use csv::Reader;
 
 use crate::models::{
     account::{Account, Accounts},
     disputes::Disputes,
-    transaction::{Transaction, Transactions},
+    transaction::{Transaction, TransactionProcessingError, Transactions},
 };
 
 #[derive(Default)]
@@ -15,13 +15,27 @@ pub struct PaymentsEngine {
     pub disputes: Disputes,
 }
 
+// This engine will process transactions and operations related to these and their respective accounts.
+// It's designed to preserve the accounts integrity and continuous operation.
+// For example, it ignores and move on processing the next piece of input when some input record could not be parsed or,
+// after being parsed, when there was any `TransactionProcessingError` case that prevented completing an operation.
 impl PaymentsEngine {
     pub fn process_transactions_from(
         &mut self,
         mut reader: Reader<File>,
     ) -> Result<(), Box<dyn Error>> {
-        for tx in reader.deserialize::<Transaction>() {
-            self.process(tx?)?
+        // With flatten here it ignores issues during parsing
+        for tx in reader.deserialize::<Transaction>().flatten() {
+            if let Err(e) = self.process(tx) {
+                match e.downcast::<TransactionProcessingError>() {
+                    Ok(_err) => {
+                        // Move on processing
+                    }
+                    Err(err) => {
+                        println!("not found or something? {}", err);
+                    }
+                }
+            }
         }
         Ok(())
     }
