@@ -1,4 +1,4 @@
-use std::{error::Error, f32::consts::E, fs::File};
+use std::{error::Error, fs::File};
 
 use csv::Reader;
 

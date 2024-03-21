@@ -64,13 +64,10 @@ impl Account {
                 unreachable!("There is always a valid amount for deposits")
             }
             Some(val) => {
-                let v = format!("{:.4}", val);
-                let t = format!("{:.4}", self.total);
                 // If there is a deposit at tx_id, then ignore the repeated deposit considering it as partner inconsistency 👀
                 transactions.entry(tx.tx_id).or_insert_with(|| {
                     // Or, since it's absent, add the deposit transaction to the record and update the account total amount 👀
                     self.total += val;
-                    let t = format!("{:.4}", self.total);
                     tx
                 });
                 Ok(())
@@ -89,8 +86,6 @@ impl Account {
             }
             Some(val) => {
                 if val > self.get_available() {
-                    let v = format!("{:.4}", val);
-                    let t = format!("{:.4}", self.total);
                     // Reject processing if there isn't enough available
                     return Err(TransactionProcessingError::InsufficientAvailableFunds((
                         tx.tx_id, val,
@@ -187,7 +182,7 @@ impl Account {
                 if let Some(val) = t.amount {
                     // Chargeback, hence 👀
                     // 1. Decrease the held and total values in this account by the previously disputed transaction's value
-                    // 2. Freeze the account 
+                    // 2. Freeze the account
                     // 3. Remove the dispute from the record of disputes that are pending.
                     self.total -= val;
                     self.held -= val;

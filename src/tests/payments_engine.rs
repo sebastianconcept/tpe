@@ -55,7 +55,6 @@ fn case4() {
     assert!(!account.locked);
 }
 
-
 #[test]
 fn case5() {
     // Operations and one dispute with an invalid tx.
@@ -83,7 +82,6 @@ fn case6() {
     assert_eq!(account.held, Decimal::from(0));
     assert!(!account.locked);
 }
-
 
 #[test]
 fn case7() {
