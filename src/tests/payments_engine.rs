@@ -58,13 +58,28 @@ fn case4() {
 
 #[test]
 fn case5() {
-    // Operations and one dispute that points to a transaction that doesn't exist and gets ignored.
+    // Operations and one dispute with an invalid tx.
+    // Ignores disputes pointing to a transaction that doesn't exist.
     let reader = get_csv_reader("resources/case-inputs/case5.csv".to_owned());
     let mut pe = PaymentsEngine::default();
     pe.process_transactions_from(reader.unwrap()).unwrap();
     let account = pe.accounts.get(&1).unwrap();
     assert_eq!(account.get_available(), Decimal::from(9));
     assert_eq!(account.total, Decimal::from(9));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(!account.locked);
+}
+
+#[test]
+fn case6() {
+    // Operations and one dispute that gets resolved and then more resolutions on that same tx.
+    // Repeated resolutions of non pending disputes get ignored.
+    let reader = get_csv_reader("resources/case-inputs/case6.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(8));
+    assert_eq!(account.total, Decimal::from(8));
     assert_eq!(account.held, Decimal::from(0));
     assert!(!account.locked);
 }

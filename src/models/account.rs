@@ -123,9 +123,6 @@ impl Account {
             Some(t) => {
                 if let Some(val) = t.amount {
                     if val > self.get_available() {
-                        let v = format!("{:.4}", val);
-                        let t = format!("{:.4}", self.total);
-
                         // Reject processing if there isn't enough available
                         return Err(TransactionProcessingError::InsufficientAvailableFunds((
                             tx.tx_id, val,
@@ -150,12 +147,19 @@ impl Account {
         transactions: &mut Transactions,
         disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
+        // Ignore processing this resolve if there is NOT a pending (unresolved) dispute for its referred transaction
+        if disputes.get(&tx.tx_id).is_none() {
+            return Ok(());
+        }
+
+        // Process this resolve
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
                 if let Some(val) = t.amount {
-                    // Resolved, hence decrease in val the value held 👀
+                    // Resolved, hence decrease in val the value held and remove it from pending disputes 👀
                     self.held -= val;
+                    disputes.remove(&tx.tx_id);
                 } else {
                     unreachable!(
                         "There is always a valid amount for transactions aimed by a resolution"
