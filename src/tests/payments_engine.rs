@@ -97,3 +97,38 @@ fn case7() {
     assert_eq!(account.held, Decimal::from(0));
     assert!(account.locked);
 }
+
+#[test]
+fn case8() {
+    // Two deposits and one withdrawal followed by a dispute that repeats and then the first deposit repeats a lot and then the withdrawal repeats once.
+    // The repeated transactions are ignored.
+    let reader = get_csv_reader("resources/case-inputs/case8.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(1));
+    assert_eq!(account.total, Decimal::from(5));
+    assert_eq!(account.held, Decimal::from(4));
+    assert!(!account.locked);
+}
+
+#[test]
+fn case9() {
+    // Some deposits and a dispute to one of the accounts but its tx id doesn't belong to the same accoun. 
+    // The disputes aimed to an account that refer to transactions that happened in a different account are ignored.
+    let reader = get_csv_reader("resources/case-inputs/case9.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(4));
+    assert_eq!(account.total, Decimal::from(4));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(!account.locked);
+
+    let account = pe.accounts.get(&2).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(3));
+    assert_eq!(account.total, Decimal::from(3));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(!account.locked);
+}

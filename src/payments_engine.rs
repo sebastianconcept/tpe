@@ -40,21 +40,6 @@ impl PaymentsEngine {
         Ok(())
     }
 
-    pub fn process_transactions_using(
-        &mut self,
-        mut reader: Reader<&[u8]>,
-    ) -> Result<(), Box<dyn Error>> {
-        for tx in reader.deserialize::<Transaction>() {
-            match tx {
-                Ok(t) => self.process(t)?,
-                Err(_) => {
-                    // Ignoring transactions that had an issue on parsing
-                }
-            }
-        }
-        Ok(())
-    }
-
     pub fn process(&mut self, transaction: Transaction) -> Result<(), Box<dyn Error>> {
         let account = self
             .accounts
