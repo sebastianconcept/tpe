@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::models::transaction::{TransactionProcessingError, TransactionType};
 
 use super::{
-    disputes::Disputes,
+    disputes::{Dispute, Disputes},
     shared::{Amount, ClientID},
     transaction::{Transaction, Transactions},
 };
@@ -54,26 +54,6 @@ impl Account {
         Ok(())
     }
 
-    // {
-    //     if let Err(err) = self.process_resolve(tx, transactions, disputes) {
-    //         match err {
-    //             TransactionProcessingError => {}
-    //             _ => return Err(err),
-    //         }
-    //         {}
-    //     }
-    // },
-    // match self.process_resolve(tx, transactions, disputes) {
-    //     Err(err) => {
-    //         match err {
-    //             TransactionProcessingError => {}
-    //             _ => return Err(err),
-    //         }
-    //         {}
-    //     }
-    //     Ok(_) => {}
-    // },
-
     fn process_deposit(
         &mut self,
         tx: Transaction,
@@ -84,10 +64,13 @@ impl Account {
                 unreachable!("There is always a valid amount for deposits")
             }
             Some(val) => {
+                let v = format!("{:.4}", val);
+                let t = format!("{:.4}", self.total);
                 // If there is a deposit at tx_id, then ignore the repeated deposit considering it as partner inconsistency 👀
                 transactions.entry(tx.tx_id).or_insert_with(|| {
                     // Or, since it's absent, add the deposit transaction to the record and update the account total amount 👀
                     self.total += val;
+                    let t = format!("{:.4}", self.total);
                     tx
                 });
                 Ok(())
@@ -106,6 +89,8 @@ impl Account {
             }
             Some(val) => {
                 if val > self.get_available() {
+                    let v = format!("{:.4}", val);
+                    let t = format!("{:.4}", self.total);
                     // Reject processing if there isn't enough available
                     return Err(TransactionProcessingError::InsufficientAvailableFunds((
                         tx.tx_id, val,
@@ -125,17 +110,29 @@ impl Account {
         transactions: &mut Transactions,
         disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
+        // Ignore processing if there is a pending (unresolved) dispute already for this transaction
+        if let Some(d) = disputes.get(&tx.tx_id) {
+            if d.tx_id == tx.tx_id {
+                return Ok(());
+            }
+        }
+
+        // Process this dispute
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
                 if let Some(val) = t.amount {
                     if val > self.get_available() {
+                        let v = format!("{:.4}", val);
+                        let t = format!("{:.4}", self.total);
+
                         // Reject processing if there isn't enough available
                         return Err(TransactionProcessingError::InsufficientAvailableFunds((
                             tx.tx_id, val,
                         )));
                     }
-                    // Disputed, hence increase in val the value held 👀
+                    // Disputed, hence add it as pending and increase in val the value held 👀
+                    disputes.entry(tx.tx_id).or_insert(Dispute::from(tx));
                     self.held += val;
                 } else {
                     unreachable!(

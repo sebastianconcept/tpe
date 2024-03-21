@@ -1,0 +1,7 @@
+deposit,    2, 1, 10.0
+withdrawal, 2, 2, 1.5
+dispute,    2, 2,
+deposit,    2, 3, 2.0
+withdrawal, 2, 4, 0.5
+dispute,    2, 2,
+deposit,    2, 5, 1.0
