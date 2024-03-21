@@ -176,15 +176,23 @@ impl Account {
         transactions: &mut Transactions,
         disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
+        // Ignore processing this chargeback if there is NOT a pending (unresolved) dispute for its referred transaction
+        if disputes.get(&tx.tx_id).is_none() {
+            return Ok(());
+        }
+
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
                 if let Some(val) = t.amount {
-                    // Chargeback, hence decrease the held and total values
-                    // in this account by the previously disputed transaction's value val and freeze the account 👀
+                    // Chargeback, hence 👀
+                    // 1. Decrease the held and total values in this account by the previously disputed transaction's value
+                    // 2. Freeze the account 
+                    // 3. Remove the dispute from the record of disputes that are pending.
                     self.total -= val;
                     self.held -= val;
                     self.locked = true;
+                    disputes.remove(&tx.tx_id);
                 } else {
                     unreachable!(
                         "There is always a valid amount for transactions aimed by a chargeback"
@@ -195,11 +203,11 @@ impl Account {
         }
     }
 
-    // Renders this account in its current state following the expected format
+    // Render this account in its current state following the expected format
     // as per `Rust Test.pdf`
     pub fn render_as_output_line(&self) {
         let output_line = format!(
-            "{}, {:.4}, {:.4}, {:.4}, {}",
+            "{}, {:#.4}, {:#.4}, {:#.4}, {}",
             self.client_id,
             self.get_available(),
             self.held,

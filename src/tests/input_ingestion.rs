@@ -98,3 +98,30 @@ fn can_parse_one_deposit_and_one_dispute_and_one_resolve_on_it() {
     assert_eq!(resolve.tx_id, 1);
     assert_eq!(resolve.amount, None);
 }
+
+#[test]
+fn can_parse_one_deposit_and_one_dispute_then_a_chargeback() {
+    let data = "deposit, 1, 1, 1.0\ndispute, 1, 1, \nchargeback, 1, 1, \n".to_string();
+    let mut reader = ReaderBuilder::new()
+        .has_headers(false)
+        .trim(Trim::All)
+        .delimiter(b',')
+        .from_reader(data.as_bytes());
+    let deposit = reader.deserialize::<Transaction>().next().unwrap().unwrap();
+    assert!(matches!(deposit.tx_type, TransactionType::Deposit));
+    assert_eq!(deposit.client_id, 1);
+    assert_eq!(deposit.tx_id, 1);
+    assert_eq!(deposit.amount.unwrap(), Decimal::from(1.0));
+
+    let dispute = reader.deserialize::<Transaction>().next().unwrap().unwrap();
+    assert!(matches!(dispute.tx_type, TransactionType::Dispute));
+    assert_eq!(dispute.client_id, 1);
+    assert_eq!(dispute.tx_id, 1);
+    assert_eq!(dispute.amount, None);
+
+    let chargeback = reader.deserialize::<Transaction>().next().unwrap().unwrap();
+    assert!(matches!(chargeback.tx_type, TransactionType::Chargeback));
+    assert_eq!(chargeback.client_id, 1);
+    assert_eq!(chargeback.tx_id, 1);
+    assert_eq!(chargeback.amount, None);
+}

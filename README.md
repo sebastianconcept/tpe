@@ -27,6 +27,8 @@ The specs mention that transactions have globally unique IDs yet, as defensive m
 
 Repeated chargebacks on a `TransactionID` cannot occur because any attempt will encounter a frozen account.
 
+Any transaction or operation on a frozen account will be ignored.
+
 Repeated unresolved disputes will be ignored.
 
 Is expected not to happen by merit of input consistency, but if for any reason a dispute or resolve or chargeback came related to a `ClientID` but the transaction they refer is pointing to another `ClientID` the system will face an `Err(TransactionProcessingError::InconsistentOperation)` and will proceed to ignore it protecting its integrity and continuous operation.

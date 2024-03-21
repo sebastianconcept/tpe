@@ -73,7 +73,7 @@ fn case5() {
 #[test]
 fn case6() {
     // Operations and one dispute that gets resolved and then more resolutions on that same tx.
-    // Repeated resolutions of non pending disputes get ignored.
+    // Repeated resolves of non pending disputes get ignored.
     let reader = get_csv_reader("resources/case-inputs/case6.csv".to_owned());
     let mut pe = PaymentsEngine::default();
     pe.process_transactions_from(reader.unwrap()).unwrap();
@@ -82,4 +82,20 @@ fn case6() {
     assert_eq!(account.total, Decimal::from(8));
     assert_eq!(account.held, Decimal::from(0));
     assert!(!account.locked);
+}
+
+
+#[test]
+fn case7() {
+    // Operations and one dispute that gets a chargeback.
+    // The value held by the disputed transaction gets subtracted from the total and the account becomes frozen.
+    // A that comes deposit after the account is locked gets ignored.
+    let reader = get_csv_reader("resources/case-inputs/case7.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(4));
+    assert_eq!(account.total, Decimal::from(4));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(account.locked);
 }

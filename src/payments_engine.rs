@@ -29,10 +29,10 @@ impl PaymentsEngine {
             if let Err(e) = self.process(tx) {
                 match e.downcast::<TransactionProcessingError>() {
                     Ok(_err) => {
-                        // Move on processing
+                        // Some variant of TransactionProcessingError, move on processing the next
                     }
-                    Err(err) => {
-                        println!("not found or something? {}", err);
+                    Err(_) => {
+                        // Parsing errors on this one, move on processing the next
                     }
                 }
             }
@@ -47,7 +47,7 @@ impl PaymentsEngine {
         for tx in reader.deserialize::<Transaction>() {
             match tx {
                 Ok(t) => self.process(t)?,
-                Err(_err) => {
+                Err(_) => {
                     // Ignoring transactions that had an issue on parsing
                 }
             }
