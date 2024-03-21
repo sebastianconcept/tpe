@@ -54,7 +54,6 @@ impl Account {
         Ok(())
     }
 
-
     // {
     //     if let Err(err) = self.process_resolve(tx, transactions, disputes) {
     //         match err {
@@ -74,7 +73,6 @@ impl Account {
     //     }
     //     Ok(_) => {}
     // },
-
 
     fn process_deposit(
         &mut self,

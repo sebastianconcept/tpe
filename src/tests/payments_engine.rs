@@ -1,11 +1,7 @@
 use csv::{ReaderBuilder, Trim};
 use fraction::Decimal;
 
-use crate::{
-    input_ingestion::get_csv_reader,
-    models::{account::Accounts, disputes::Disputes, transaction::Transactions},
-    payments_engine::PaymentsEngine,
-};
+use crate::{ input_ingestion::get_csv_reader, payments_engine::PaymentsEngine};
 
 fn one_deposit() -> String {
     "deposit, 1, 1, 1.0\n".to_string()
@@ -44,13 +40,9 @@ fn can_read_and_add_one_deposit_to_the_client_account() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&1).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
     assert_eq!(account.get_available(), Decimal::from(1.0));
     assert_eq!(account.total, Decimal::from(1.0));
     assert_eq!(account.held, Decimal::from(0));
@@ -65,13 +57,9 @@ fn two_deposits_to_the_client_account() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&34).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&34).unwrap();
     assert_eq!(account.get_available(), Decimal::from(2.1))
 }
 
@@ -83,15 +71,11 @@ fn three_deposits_but_two_to_the_same_client_account() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&34).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&34).unwrap();
     assert_eq!(account.get_available(), Decimal::from(2.7));
-    let account = accounts.get(&22).unwrap();
+    let account = pe.accounts.get(&22).unwrap();
     assert_eq!(account.get_available(), Decimal::from(1))
 }
 
@@ -103,15 +87,11 @@ fn three_deposits_but_two_repeated_tx_id_same_client_account() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&34).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&34).unwrap();
     assert_eq!(account.get_available(), Decimal::from(2.7));
-    let account = accounts.get(&22).unwrap();
+    let account = pe.accounts.get(&22).unwrap();
     assert_eq!(account.get_available(), Decimal::from(1))
 }
 
@@ -124,15 +104,11 @@ fn three_deposits_but_two_repeated_tx_id_different_client_accounts() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&34).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&34).unwrap();
     assert_eq!(account.get_available(), Decimal::from(2.7));
-    let account = accounts.get(&22).unwrap();
+    let account = pe.accounts.get(&22).unwrap();
     assert_eq!(account.get_available(), Decimal::from(1))
 }
 
@@ -144,13 +120,9 @@ fn three_deposits_to_the_same_client_account_but_ignores_the_one_with_negative_a
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&34).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&34).unwrap();
     assert_eq!(account.get_available(), Decimal::from(2.3));
 }
 
@@ -162,13 +134,9 @@ fn ignores_widthdrawal_with_negative_amount() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&43).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&43).unwrap();
     assert_eq!(account.get_available(), Decimal::from(4.72));
 }
 
@@ -184,13 +152,9 @@ fn ignores_repeated_disputes_on_same_tx_from_same_client_id() {
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
-    let mut accounts = Accounts::default();
-    let mut transactions = Transactions::default();
-    let mut disputes = Disputes::default();
-    pe.process_transactions_using(reader, &mut accounts, &mut transactions, &mut disputes)
-        .unwrap();
-    let account = accounts.get(&43).unwrap();
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_using(reader).unwrap();
+    let account = pe.accounts.get(&43).unwrap();
     assert_eq!(account.get_available(), Decimal::from(1.42));
     assert_eq!(account.held, Decimal::from(1));
     assert_eq!(account.total, Decimal::from(3.42));
@@ -198,19 +162,18 @@ fn ignores_repeated_disputes_on_same_tx_from_same_client_id() {
 
 #[test]
 fn case4() {
-    let data = one_deposit();
     let reader = get_csv_reader("input/case4-ignores-repeated-unresolved-dispute.csv".to_owned());
     // let reader = ReaderBuilder::new()
     //     .has_headers(false)
     //     .trim(Trim::All)
     //     .delimiter(b',')
     //     .from_reader(data.as_bytes());
-    let pe = PaymentsEngine::default();
+    let mut pe = PaymentsEngine::default();
     // let mut accounts = Accounts::default();
     // let mut transactions = Transactions::default();
     // let mut disputes = Disputes::default();
     pe.process_transactions_from(reader.unwrap()).unwrap();
-    let account = accounts.get(&1).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
     assert_eq!(account.get_available(), Decimal::from(1.0));
     assert_eq!(account.total, Decimal::from(1.0));
     assert_eq!(account.held, Decimal::from(0));

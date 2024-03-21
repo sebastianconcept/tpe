@@ -7,9 +7,9 @@ use tpe::{
 
 fn process_input() -> Result<(), Box<dyn Error>> {
     let reader = get_csv_reader(input_filename()?).expect("CSV reader could not be created");
-    let pe = PaymentsEngine::default();
-    let accounts = pe.process_transactions_from(reader)?;
-    for (_, account) in accounts.iter() {
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader)?;
+    for (_, account) in pe.accounts.iter() {
         account.render_as_output_line();
     }
     Ok(())
