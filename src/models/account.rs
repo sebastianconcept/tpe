@@ -39,11 +39,12 @@ impl Account {
         disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
         if self.locked {
-            // For all types of operations, the locked account will prevent further processing of any transaction.
+            // For all types of operations, the locked account will prevent further processing of any kind.
+            // The application should decide (handle) what to do with a TargetAccountLocked.
             return Err(TransactionProcessingError::TargetAccountLocked(tx.tx_id));
         }
 
-        // But if not locked, can move on processing every case
+        // But if not locked, it moves on processing every case
         match tx.tx_type {
             TransactionType::Deposit => self.process_deposit(tx, transactions)?,
             TransactionType::Withdrawal => self.process_withdrawal(tx, transactions)?,
@@ -67,6 +68,7 @@ impl Account {
                 // If there is a deposit at tx_id, then ignore the repeated deposit considering it as partner inconsistency 👀
                 transactions.entry(tx.tx_id).or_insert_with(|| {
                     // Or, since it's absent, add the deposit transaction to the record and update the account total amount 👀
+                    // Note: If already present in transactions, it will be ignored.
                     self.total += val;
                     tx
                 });
@@ -91,9 +93,12 @@ impl Account {
                         tx.tx_id, val,
                     )));
                 }
-                // Subtracts the withdrawal transaction amount from the total 👀
-                self.total -= val;
-                transactions.insert(tx.tx_id, tx);
+                transactions.entry(tx.tx_id).or_insert_with(|| {
+                    // Or, since it's absent, add the withdrawal transaction to the record and update the account total amount 👀
+                    // Note: If already present in transactions, it will be ignored.
+                    self.total -= val;
+                    tx
+                });
                 Ok(())
             }
         }
@@ -105,17 +110,26 @@ impl Account {
         transactions: &mut Transactions,
         disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
-        // Ignore processing if there is a pending (unresolved) dispute already for this transaction
+        // Ignore processing if there is a pending (unresolved) dispute already for this transaction.
         if let Some(d) = disputes.get(&tx.tx_id) {
             if d.tx_id == tx.tx_id {
                 return Ok(());
             }
         }
 
+        // Return an error if the given tx has a `ClientID` that is not the one of this account.
+        if tx.client_id != self.client_id {
+            return Err(TransactionProcessingError::InconsistentOperation);
+        }
+
         // Process this dispute
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
+                // Return an error if the referred tx of the given tx has a `ClientID` that is not the one of this account.
+                if t.client_id != self.client_id {
+                    return Err(TransactionProcessingError::InconsistentOperation);
+                }
                 if let Some(val) = t.amount {
                     if val > self.get_available() {
                         // Reject processing if there isn't enough available

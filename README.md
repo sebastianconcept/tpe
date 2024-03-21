@@ -3,12 +3,12 @@
 ## Run
 
 ```bash
-cargo run -- inputs/case2.csv
+cargo run -- resources/case-inputs/case1.csv
 ```
 
 ## Overview
 
-Conceptually, `tpe` is a toy but some parts are taken seriously. For example, correctness of the processed input and numerical precision on values. Also making the engine able to process a stream of input so it could be useful as the foundation of something more valuable.
+Conceptually, `tpe` is a toy but some parts are taken seriously. For example, correctness of the processed input and numerical precision on values. Also, making the engine able to process a stream of input preserving integrity even when the input might include inconsistencies from partners that can be overcome. 
 
 ## Program architecture
 
@@ -51,44 +51,49 @@ Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a 
 
 ## Processing Sequence
 
-Here is an example of processing a `Dispute`.
+Here is an example of the main parts and sequence involved in processing a `Dispute`.
 
 ```
-            ┌──────────────────┐     ┌─────────────┐    ┌────────────┐ ┌───────────────┐ ┌────────────────────────────────────┐
-            │  PaymentsEngine  │     │   Reader    │    │  Account   │ │  Transaction  │ │            Transactions            │
-            └─────────┬────────┘     └──────┬──────┘    └──────┬─────┘ └───────┬───────┘ │                                    │
-                      │                     │                  │               │         │HashMap<TransactionID, Transaction> │
-                                            │                  │               │         └──────────────────┬─────────────────┘
- process_transactions_from                  │                  │               │                            │
-   ──────────────────▶                      │                  │               │                            │
-                      │                     │                  │               │                            │
-                      │  deserialize::<Transaction>()          │               │                            │
-                      ├────────────────────▶│                  │               │                            │
-                      │◀────────────────────┤                  │               │                            │
-                      │                     │                  │               │                            │
-                      │───┐                 │                  │               │                            │
-                      │   │process(tx?                         │               │                            │
-                      │   │    , &mut accounts_by_client_id    │               │                            │
-                      │◀──│    , &mut transactions_by_id)?     │               │                            │
-                      │                     │                  │               │                            │
-                      │              process(tx, transactions) │               │                            │
-                      │─────────────────────┼─────────────────▶│               │                            │
-                      │                     │                  │───┐process_dispute(                        │
-                      │                     │                  │   │    tx: Transaction,                    │
-                      │                     │                  │   │    transactions: &mut Transactions)    │
-                      │                     │                  │◀──│           │                            │
-                      │                     │                  │               │   get(tx.tx_id)            │
-                      │                     │                  ├───────────────┼───────────────────────────▶│
-                      │                     │                  │               │                            │
-                      │                     │                  │◀──────────────┼────────────────────────────┤
-                      │                     │                  │               │                            │
-                      │                     │                  │───┐           │                            │
-                      │                     │                  │   │If sufficient,                          │
-                      │                     │                  │   │increase value held                     │
-                      │                     │                  │◀──│by tx.amount                            │
-                      │◀────────────────────┼──────────────────│               │                            │
-                      │                     │                  │               │                            │
-                      │                     │                  │               │                            │
+          ┌──────────────────┐     ┌─────────────┐    ┌────────────┐         ┌────────────────────────────────────┐
+          │  PaymentsEngine  │     │   Reader    │    │  Account   │         │            Transactions            │
+          └─────────┬────────┘     └──────┬──────┘    └──────┬─────┘         │                                    │
+                    │                     │                  │               │HashMap<TransactionID, Transaction> │
+                                          │                  │               └──────────────────┬─────────────────┘
+process_transactions_from(reader)         │                  │                                  │                  
+ ──────────────────▶                      │                  │                                  │                  
+                    │                     │                  │                                  │                  
+                    │  deserialize::<Transaction>()          │                                  │                  
+                    ├────────────────────▶│                  │                                  │                  
+                    │                     │                  │                                  │                  
+                    │◀────────────────────┤                  │                                  │                  
+                    │                     │                  │                                  │                  
+                    │───┐process(tx?                         │                                  │                  
+                    │   │    , &mut accounts_by_client_id    │                                  │                  
+                    │◀──┘    , &mut transactions_by_id       │                                  │                  
+                    │        , &mut disputes_by_tx_id)?      │                                  │                  
+                    │                     │                  │                                  │                  
+                    │    process(tx, transactions, disputes) │ process_dispute(                                    
+                    │─────────────────────┼─────────────────▶│     tx: Transaction,                                
+                    │                     │                  │───┐ transactions: &mut Transactions,                
+                    │                     │                  │   │ disputes: &mut Disputes)                        
+                    │                     │                  │◀──┘                              │                  
+                    │                     │                  │                   get(tx.tx_id)                     
+                    │                     │                  ├─────────────────────────────────▶│                  
+                    │                     │                  │                                  │                  
+                    │                     │                  │◀─────────────────────────────────│                  
+                    │                     │                  │                                  │                  
+                    │                     │                  │                                  │                  
+                    │                     │                  │───┐If not already disputed,      │                  
+                    │                     │                  │   │increase value held by        │                  
+                    │                     │                  │◀──┘tx.amount                     │                  
+                    │                     │                  │                                  │                  
+                    │◀────────────────────┼──────────────────│                                  │                  
+                    │                     │                  │                                  │                  
+                    ┆   process next...   │                  │                                  │                  
+                     ───┐                 │                  │                                  │                  
+                        │                 │                  │                                  │                  
+                     ◀──┘                 │                  │                                  │                  
+                    ┆                     │                  │                                  │                  
 ```
 
 ## General design notes
@@ -97,23 +102,30 @@ Here is an example of processing a `Dispute`.
 2. Valid fields are `type, client, tx, amount` in that order as per specs.
 3. Not considering previous historical state. When instantiating an account for a client, I assumed all quantities were at 0 and the account not locked. To improve this, it would be necessary to access the database where this history is stored and reimplement the function `get_account_for(client_id: OID)`.
 4. Withdrawals cannot be processed on locked accounts.
-5. Disputes will not happen in locked accounts and accounts with insufficient available value will fail to process them raising `TransactionProcessingError::InsufficientFunds`.
+5. No operation or transaction will be processed in locked accounts.
+6. Accounts with insufficient available funds will fail to process raising a `TransactionProcessingError::InsufficientFunds`.
 
 ## Questions
 
 1. What happens if the processing engine receives input to dispute a value greater than what's available? or total?
 2. What happens when a `Transaction` is disputed 2 times? or more than twice.
-3. What happens when a `Transaction` is resolved 2 times? or more than twice.
-4. What happens when a `Transaction` has 2 chargebacks? or more than two.
+- R: Depends, if the dispute is pending, then the second dispute gets ignored. If there are disputes and resolutions in sequence these will be processed normally. If a pending dispute gets a chargeback, the account will stay locked and the engine will ignore input that aims at it.
+3. What happens when a `Transaction` dispute is resolved 2 times? or more than twice.
+- R: In dispute/resolve sequence, disputes on transactions can be resolved any amount of times.
+4. What happens when a disputed `Transaction` has 2 chargebacks? or more than two.
+- R: It can't. The first chageback will lock the account and all input aiming at it will be ignored.
 5. What happens when a `Transaction` is repeated (same `TransactionID`, same `ClientID` and same `Amount`)?
+- R: Deposits and withdrawals are using `transactions.entry(tx.tx_id).or_insert_with(` so they will ignore any `tx_id` that already got processed.
 6. What happens when a `Transaction` is repeated (same `TransactionID`, same `ClientID` and _different_ `Amount`)?
-7. What happens when the `TransactionID` in a dispute corresponds to a `ClientID` that is not the same? The spec states that the tx in a dispute could not exist and be safely ignored but it doesn't clarify anything about being about a different `ClientID`.
+- R: Same answer than 5. 
+7. What happens when the `TransactionID` in a dispute corresponds to a `ClientID` that is not the same? 
+- R: The spec states that the tx in a dispute could not exist and be safely ignored but it doesn't clarify anything about being about a different `ClientID`. In this `PaymentEngine` that is considered invalid input and these cases will be treated as input inconsistencies hence, these transactions will be ignored.
 
 ## Further contributions and recommendations
 
-To make this processing engine more scalable, streaming the input via a networked service would be advisable. There are many options and protocols for that. If based on HTTP, [Axum](https://github.com/tokio-rs/axum) and [hyper](https://github.com/hyperium/hyper) are both based on the [Tokio](https://github.com/tokio-rs/tokio) runtime which is a great technical foundation for safe and efficient asynchronous and multithread code.
+To make this processing engine more scalable, streaming the input via a networked service would be advisable. There are many options and protocols for that. If based on HTTP, [Axum](https://github.com/tokio-rs/axum) and [hyper](https://github.com/hyperium/hyper) are both based on the [Tokio](https://github.com/tokio-rs/tokio) runtime which is a great technical foundation for safe and efficient asynchronous and multithread code. Interestingly, Tokio can be tunned with different strategies on how it gets load and work distributed among cores. Measurments in the lab under different load scenarios and strategies would trigger many very interesting discussions among the system engineers scaling this.
 
-That brings the efficiency and ability to take advantage of using multi-core CPUs and some added complexity to make that safe.
+While that brings the efficiency and ability to take advantage of using multi-core CPUs it also carries some added complexity to make that safe.
 
 For example, the structures holding the accounts and transactions, that in this program are `HashMap`s, would need be used behind a protection wall like `Mutex` or `RwLock` to be safe.
 
@@ -132,4 +144,5 @@ If the requirements are high volume and one host cannot hold all the transaction
 - ~~Ignore repeated deposits in the same `TransactionID`. Only the first one is considered valid. Add unit test.~~
 - ~~Unless resolved, ignore repeated disputes on the same `TransactionID`. Add unit test.~~
 - ~~Decide on what to do if a dispute has diverging `ClientID`. Only valid for same `ClientID` than the disputed transaction~~
-- fraction::Decimal printing 4 decimals in the output.
+- ~~fraction::Decimal printing 4 decimals in the output.~~
+- ~~Add `TransactionProcessingError::InconsistentOperation`. With test case.~~

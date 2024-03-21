@@ -71,6 +71,7 @@ pub enum TransactionProcessingError {
     InsufficientAvailableFunds((TransactionID, Amount)),
     TargetAccountLocked(TransactionID),
     NotFound(TransactionID),
+    InconsistentOperation,
 }
 impl error::Error for TransactionProcessingError {}
 
@@ -88,6 +89,12 @@ impl fmt::Display for TransactionProcessingError {
                     f,
                     "Insufficient available funds to process {:.4} in transaction {}",
                     val, tx_id
+                )
+            }
+            TransactionProcessingError::InconsistentOperation => {
+                write!(
+                    f,
+                    "The targeted account doesn't match the account of the referred transaction"
                 )
             }
         }
