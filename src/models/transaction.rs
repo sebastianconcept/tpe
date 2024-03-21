@@ -9,7 +9,7 @@ use super::shared::{ClientID, TransactionID};
 // An index to reach transactions by transaction ID
 pub type Transactions = HashMap<TransactionID, Transaction>;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Deposit,
@@ -19,7 +19,7 @@ pub enum TransactionType {
     Chargeback,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 pub struct Transaction {
     pub tx_type: TransactionType,
     pub client_id: ClientID,
@@ -68,7 +68,7 @@ impl fmt::Display for TransactionDeserializingError {
 
 #[derive(Debug)]
 pub enum TransactionProcessingError {
-    InsufficientFunds((TransactionID, Amount)),
+    InsufficientAvailableFunds((TransactionID, Amount)),
     TargetAccountLocked(TransactionID),
     NotFound(TransactionID),
 }
@@ -83,10 +83,10 @@ impl fmt::Display for TransactionProcessingError {
             TransactionProcessingError::TargetAccountLocked(tx_id) => {
                 write!(f, "Unable to process {}, target account is locked", tx_id)
             }
-            TransactionProcessingError::InsufficientFunds((tx_id, val)) => {
+            TransactionProcessingError::InsufficientAvailableFunds((tx_id, val)) => {
                 write!(
                     f,
-                    "Insufficient funds to process {:.4} in transaction {}",
+                    "Insufficient available funds to process {:.4} in transaction {}",
                     val, tx_id
                 )
             }

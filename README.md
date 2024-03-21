@@ -31,6 +31,8 @@ The output is of a well known format for the systems involved and headers are no
 
 Amounts are rendered as floats printed with 4 digits of precision.
 
+Disputes can only be considered valid when the dispute has a `ClientID` value equal to the one in the disputed transaction.
+
 ## On input digestion
 For the deserialization part of digesting input, I've decided to use Serde and csv as suggested as they are well known robust and well maintained crates.
 
@@ -115,6 +117,7 @@ If the requirements are high volume and one host cannot hold all the transaction
 - ~~Make it render output~~
 - ~~Clean println! entries used for debug~~
 - ~~Add sequence diagram~~
-- Ignore repeated deposits in the same `TransactionID`. Add unit test.
+- ~~Ignores records that have negative amount. Add unit test.~~
+- ~~Ignore repeated deposits in the same `TransactionID`. Only the first one is considered valid. Add unit test.~~
 - Unless resolved, ignore repeated disputes on the same `TransactionID`. Add unit test.
-- Decide on what to do if a dispute has diverging `ClientID`
+- ~~Decide on what to do if a dispute has diverging `ClientID`. Only valid for same `ClientID` than the disputed transaction~~

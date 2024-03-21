@@ -1,4 +1,5 @@
 pub mod shared;
 
-pub mod transaction;
 pub mod account;
+pub mod disputes;
+pub mod transaction;

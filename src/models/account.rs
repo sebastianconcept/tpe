@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::models::transaction::{TransactionProcessingError, TransactionType};
 
 use super::{
+    disputes::Disputes,
     shared::{Amount, ClientID},
     transaction::{Transaction, Transactions},
 };
@@ -35,6 +36,7 @@ impl Account {
         &mut self,
         tx: Transaction,
         transactions: &mut Transactions,
+        disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
         if self.locked {
             // For all types of operations, the locked account will prevent further processing of any transaction.
@@ -45,12 +47,34 @@ impl Account {
         match tx.tx_type {
             TransactionType::Deposit => self.process_deposit(tx, transactions)?,
             TransactionType::Withdrawal => self.process_withdrawal(tx, transactions)?,
-            TransactionType::Dispute => self.process_dispute(tx, transactions)?,
-            TransactionType::Resolve => self.process_resolve(tx, transactions)?,
-            TransactionType::Chargeback => self.process_chargeback(tx, transactions)?,
+            TransactionType::Dispute => self.process_dispute(tx, transactions, disputes)?,
+            TransactionType::Resolve => self.process_resolve(tx, transactions, disputes)?,
+            TransactionType::Chargeback => self.process_chargeback(tx, transactions, disputes)?,
         }
         Ok(())
     }
+
+
+    // {
+    //     if let Err(err) = self.process_resolve(tx, transactions, disputes) {
+    //         match err {
+    //             TransactionProcessingError => {}
+    //             _ => return Err(err),
+    //         }
+    //         {}
+    //     }
+    // },
+    // match self.process_resolve(tx, transactions, disputes) {
+    //     Err(err) => {
+    //         match err {
+    //             TransactionProcessingError => {}
+    //             _ => return Err(err),
+    //         }
+    //         {}
+    //     }
+    //     Ok(_) => {}
+    // },
+
 
     fn process_deposit(
         &mut self,
@@ -62,9 +86,12 @@ impl Account {
                 unreachable!("There is always a valid amount for deposits")
             }
             Some(val) => {
-                // Adds the deposit transaction amount to the total 👀
-                self.total += val;
-                transactions.insert(tx.tx_id, tx);
+                // If there is a deposit at tx_id, then ignore the repeated deposit considering it as partner inconsistency 👀
+                transactions.entry(tx.tx_id).or_insert_with(|| {
+                    // Or, since it's absent, add the deposit transaction to the record and update the account total amount 👀
+                    self.total += val;
+                    tx
+                });
                 Ok(())
             }
         }
@@ -82,7 +109,7 @@ impl Account {
             Some(val) => {
                 if val > self.get_available() {
                     // Reject processing if there isn't enough available
-                    return Err(TransactionProcessingError::InsufficientFunds((
+                    return Err(TransactionProcessingError::InsufficientAvailableFunds((
                         tx.tx_id, val,
                     )));
                 }
@@ -98,6 +125,7 @@ impl Account {
         &mut self,
         tx: Transaction,
         transactions: &mut Transactions,
+        disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
@@ -105,7 +133,7 @@ impl Account {
                 if let Some(val) = t.amount {
                     if val > self.get_available() {
                         // Reject processing if there isn't enough available
-                        return Err(TransactionProcessingError::InsufficientFunds((
+                        return Err(TransactionProcessingError::InsufficientAvailableFunds((
                             tx.tx_id, val,
                         )));
                     }
@@ -125,6 +153,7 @@ impl Account {
         &mut self,
         tx: Transaction,
         transactions: &mut Transactions,
+        disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
@@ -146,6 +175,7 @@ impl Account {
         &mut self,
         tx: Transaction,
         transactions: &mut Transactions,
+        disputes: &mut Disputes,
     ) -> Result<(), TransactionProcessingError> {
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
