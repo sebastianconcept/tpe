@@ -5,7 +5,7 @@ use crate::{input_ingestion::get_csv_reader, payments_engine::PaymentsEngine};
 
 #[test]
 fn can_process_input_as_stream_of_bytes() {
-    // The PaymentEngine could work streaming data instead of using input from a CSV file.
+    // The PaymentEngine can work streaming data instead of using input from a CSV file.
     let data = "deposit, 1, 1, 1.0\ndeposit, 2, 2, 2.0";
     let reader = ReaderBuilder::new()
         .has_headers(false)
@@ -132,7 +132,7 @@ fn case8() {
 
 #[test]
 fn case9() {
-    // Some deposits and a dispute to one of the accounts but its tx id doesn't belong to the same accoun.
+    // Some deposits and a dispute to one of the accounts, but the dispute tx id doesn't belong to the same account.
     // The disputes aimed to an account that refer to transactions that happened in a different account are ignored.
     let reader = get_csv_reader("resources/case-inputs/case9.csv".to_owned());
     let mut pe = PaymentsEngine::default();
@@ -194,4 +194,38 @@ fn case12() {
     assert_eq!(account.total, Decimal::from(3));
     assert_eq!(account.held, Decimal::from(0));
     assert!(account.locked);
+}
+
+#[test]
+fn case13() {
+    // Operations in two accounts and account 1 experiences all the different types of input.
+    let reader = get_csv_reader("resources/case-inputs/case13.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(3.5));
+    assert_eq!(account.total, Decimal::from(3.5));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(account.locked);
+}
+
+#[test]
+fn case14() {
+    // Some deposits and a dispute to one of the accounts, then a chargeback with the same disputed tx id but set for a different account.
+    // The chargebacks aimed to an account that refer to transactions that happened in a different account are ignored.
+    let reader = get_csv_reader("resources/case-inputs/case14.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(5));
+    assert_eq!(account.total, Decimal::from(6));
+    assert_eq!(account.held, Decimal::from(1));
+    assert!(!account.locked);
+
+    let account = pe.accounts.get(&2).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(4));
+    assert_eq!(account.total, Decimal::from(4));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(!account.locked);
 }

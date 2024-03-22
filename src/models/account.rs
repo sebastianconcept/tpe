@@ -187,6 +187,10 @@ impl Account {
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
+                // Return an error if the referred tx of the given tx has a `ClientID` that is not the one of this account.
+                if t.client_id != self.client_id {
+                    return Err(TransactionProcessingError::InconsistentOperation);
+                }
                 if let Some(val) = t.amount {
                     // Chargeback, hence 👀
                     // 1. Decrease if deposit or increase if withdrawal the total value in this account by the previously disputed transaction's value.
