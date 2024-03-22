@@ -110,7 +110,7 @@ process_transactions_from(reader)         │                  │              
 ## Questions
 
 1. What happens if the processing engine receives input to dispute a value greater than what's available? or total? Can that happen?
-- R: In the current design, a dispute will be processed when the account has sufficient available funds. When it doesn't, the system produces an `Err(TransactionProcessingError::InsufficientFunds)`, that said, it will never happen because values can *only* be held, for disputes when funds are available.
+- R: In the current design, a dispute will be processed when the account has sufficient available funds. When it doesn't, the system produces an `Err(TransactionProcessingError::InsufficientFunds)`.
 2. What happens when a `Transaction` is disputed 2 times? or more than twice.
 - R: Depends, if the dispute is pending, then the second dispute gets ignored. If there are disputes and resolutions in sequence these will be processed normally. If a pending dispute gets a chargeback, the account will stay locked and the engine will ignore input that aims at it.
 3. What happens when a `Transaction` dispute is resolved 2 times? or more than twice.
@@ -150,4 +150,5 @@ If the requirements are high volume and one host cannot hold all the transaction
 - ~~fraction::Decimal printing 4 decimals in the output.~~
 - ~~Add `TransactionProcessingError::InconsistentOperation`. With test case.~~
 - ~~Parsing amount input using `fraction::Decimal::from(input: String)`. Add case.~~
-- Explore adopting malachite.
+- ~~Match `TransactionProcessingError` without downcasting boxed dyn errors.~~
+- Explore adopting malachite for improved precision.
