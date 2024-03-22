@@ -39,25 +39,24 @@ where
         // So far these are: Dispute, Resolve and Chargeback
         return Ok(None);
     }
-    match s.parse::<f64>() {
-        Ok(val) => {
-            let decimal = Decimal::from(val);
-            if decimal < Decimal::zero() {
+    match s.parse::<Decimal>() {
+        Ok(v) => {
+            if v < Decimal::zero() {
                 return Err(serde::de::Error::custom(
-                    TransactionDeserializingError::NegativeAmount(val),
+                    TransactionDeserializingError::NegativeAmount(v.to_string()),
                 ));
             }
-            Ok(Some(decimal))
+            Ok(Some(v))
         }
         Err(_err) => Err(serde::de::Error::custom(
-            TransactionDeserializingError::UnableToParseAsFloat(s),
+            TransactionDeserializingError::UnableToParseAmount(s),
         )),
     }
 }
 
 pub enum TransactionDeserializingError {
-    UnableToParseAsFloat(String),
-    NegativeAmount(f64),
+    UnableToParseAmount(String),
+    NegativeAmount(String),
 }
 
 impl fmt::Display for TransactionDeserializingError {

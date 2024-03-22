@@ -31,6 +31,8 @@ Any transaction or operation on a frozen account will be ignored.
 
 Repeated unresolved disputes will be ignored.
 
+The tiniest amount accepted is from the input is `0.0000000000000000001`.
+
 Is expected not to happen by merit of input consistency, but if for any reason a dispute or resolve or chargeback came related to a `ClientID` but the transaction they refer is pointing to another `ClientID` the system will face an `Err(TransactionProcessingError::InconsistentOperation)` and will proceed to ignore it protecting its integrity and continuous operation.
 
 ## Output assumptions
@@ -147,3 +149,4 @@ If the requirements are high volume and one host cannot hold all the transaction
 - ~~Decide on what to do if a dispute has diverging `ClientID`. Only valid for same `ClientID` than the disputed transaction~~
 - ~~fraction::Decimal printing 4 decimals in the output.~~
 - ~~Add `TransactionProcessingError::InconsistentOperation`. With test case.~~
+- ~~Parsing amount input using `fraction::Decimal::from(input: String)`. Add case.~~

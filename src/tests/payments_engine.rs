@@ -229,3 +229,20 @@ fn case14() {
     assert_eq!(account.held, Decimal::from(0));
     assert!(!account.locked);
 }
+
+#[test]
+fn case15() {
+    // One deposit and the tiniest withdrawal
+    let reader = get_csv_reader("resources/case-inputs/case15.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(
+        account.get_available(),
+        Decimal::from("0.9999999999999999999")
+    );
+    assert_eq!(account.total, Decimal::from("0.9999999999999999999"));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(!account.locked);
+}
