@@ -18,7 +18,7 @@ As the whole processing goes on, the accounts are maintained in a consistent sta
 
 At the end of the processing, an iteration to render these account entries is what produces the output format as expected.
 
-## Input assupmtions
+## Input assumptions
 
 As per exercise specification, `ClientID` is `u16` and `TransactionID` is `u32` while the amount value is a `String` representing a real positive number with 4 digits.
 Any negative amount in the records of the input will be considered as an inconsistency coming from the partner and if such case occurs, the deserializer on the field will return a `None` and the `Reader` will return a specific `Err` that is handled so the processing can continue efficiently.
@@ -33,7 +33,7 @@ Repeated unresolved disputes will be ignored.
 
 Is expected not to happen by merit of input consistency, but if for any reason a dispute or resolve or chargeback came related to a `ClientID` but the transaction they refer is pointing to another `ClientID` the system will face an `Err(TransactionProcessingError::InconsistentOperation)` and will proceed to ignore it protecting its integrity and continuous operation.
 
-## Output assupmtions
+## Output assumptions
 
 The output is of a well known format for the systems involved and headers are not present.
 
@@ -124,7 +124,7 @@ process_transactions_from(reader)         │                  │              
 
 ## Further contributions and recommendations
 
-To make this processing engine more scalable, streaming the input via a networked service would be advisable. There are many options and protocols for that. If based on HTTP, [Axum](https://github.com/tokio-rs/axum) and [hyper](https://github.com/hyperium/hyper) are both based on the [Tokio](https://github.com/tokio-rs/tokio) runtime which is a great technical foundation for safe and efficient asynchronous and multithread code. Interestingly, Tokio can be tunned with different strategies on how it gets load and work distributed among cores. Measurments in the lab under different load scenarios and strategies would trigger many very interesting discussions among the system engineers scaling this.
+To make this processing engine more scalable, streaming the input via a networked service would be advisable. There are many options and protocols for that. If based on HTTP, [Axum](https://github.com/tokio-rs/axum) and [hyper](https://github.com/hyperium/hyper) are both based on the [Tokio](https://github.com/tokio-rs/tokio) runtime which is a great technical foundation for safe and efficient asynchronous and multithread code. Interestingly, Tokio can be tunned with different strategies on how it gets load and work distributed among cores. Measurements in the lab under different load scenarios and strategies would trigger many very interesting discussions among the system engineers scaling this.
 
 While that brings the efficiency and ability to take advantage of using multi-core CPUs it also carries some added complexity to make that safe.
 
