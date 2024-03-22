@@ -150,3 +150,4 @@ If the requirements are high volume and one host cannot hold all the transaction
 - ~~fraction::Decimal printing 4 decimals in the output.~~
 - ~~Add `TransactionProcessingError::InconsistentOperation`. With test case.~~
 - ~~Parsing amount input using `fraction::Decimal::from(input: String)`. Add case.~~
+- Explore adopting malachite.
