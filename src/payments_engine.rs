@@ -29,10 +29,40 @@ impl PaymentsEngine {
             if let Err(e) = self.process(tx) {
                 match e.downcast::<TransactionProcessingError>() {
                     Ok(_err) => {
-                        // Some variant of TransactionProcessingError, move on processing the next
+                        // Some variant of TransactionProcessingError, move on processing the next transaction.
+
+                        // Note: In a real payment engine, cases like this would typically generate system events
+                        // that are published to a high-capacity shared queue, which can be observed by other
+                        // programs. These observer programs can be decoupled client applications with the
+                        // appropriate concerns to handle policies for reacting to such cases.
+                        //
+                        // For example, should they just re-try after a while? Or, if an operation was inconsistent,
+                        // it might require logging or queuing for investigation with a partner.
                     }
                     Err(_) => {
                         // Parsing errors on this one, move on processing the next
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn process_transactions_streaming_input(
+        &mut self,
+        mut reader: Reader<&[u8]>,
+    ) -> Result<(), Box<dyn Error>> {
+        // With flatten here it ignores issues during parsing
+        for tx in reader.deserialize::<Transaction>().flatten() {
+            if let Err(e) = self.process(tx) {
+                match e.downcast::<TransactionProcessingError>() {
+                    Ok(_err) => {
+                        // Some variant of TransactionProcessingError, move on processing the next transaction.
+
+                        // Note: same observations as noted in `process_transactions_from`
+                    }
+                    Err(_) => {
+                        // Parsing errors on this one, move on processing the next.
                     }
                 }
             }
