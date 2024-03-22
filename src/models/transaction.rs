@@ -62,7 +62,7 @@ pub enum TransactionDeserializingError {
 
 impl fmt::Display for TransactionDeserializingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "amount must be positive")
+        write!(f, "amount must be a positive float")
     }
 }
 

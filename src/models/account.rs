@@ -131,12 +131,6 @@ impl Account {
                     return Err(TransactionProcessingError::InconsistentOperation);
                 }
                 if let Some(val) = t.amount {
-                    if val > self.get_available() {
-                        // Reject processing if there isn't enough available
-                        return Err(TransactionProcessingError::InsufficientAvailableFunds((
-                            tx.tx_id, val,
-                        )));
-                    }
                     // Disputed, hence add it as pending and increase in val the value held 👀
                     disputes.entry(tx.tx_id).or_insert(Dispute::from(tx));
                     self.held += val;
@@ -195,10 +189,17 @@ impl Account {
             Some(t) => {
                 if let Some(val) = t.amount {
                     // Chargeback, hence 👀
-                    // 1. Decrease the held and total values in this account by the previously disputed transaction's value
-                    // 2. Freeze the account
-                    // 3. Remove the dispute from the record of disputes that are pending.
-                    self.total -= val;
+                    // 1. Decrease if deposit or increase if withdrawal the total value in this account by the previously disputed transaction's value.
+                    // 2. Decrease held of that value.
+                    // 3. Freeze the account.
+                    // 4. Remove the dispute from the record of disputes that are pending.
+                    match t.tx_type {
+                        TransactionType::Deposit => self.total -= val,
+                        TransactionType::Withdrawal => self.total += val,
+                        _ => {
+                            unreachable!("No valid case can reach this")
+                        }
+                    }
                     self.held -= val;
                     self.locked = true;
                     disputes.remove(&tx.tx_id);

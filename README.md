@@ -43,11 +43,11 @@ Disputes can only be considered valid when the dispute has a `ClientID` value eq
 
 ## On input digestion
 
-For the deserialization part of digesting input, I've decided to use Serde and csv as suggested as they are well known robust and well maintained crates.
+For the deserialization part of digesting input, I've decided to use [Serde](https://github.com/serde-rs/serde) and [csv](https://github.com/BurntSushi/rust-csv) as suggested as they are well known robust and well maintained crates.
 
 For the `Transaction` struct you'll find I've made it derive `Deserialize` but also enforced deserialization correctness on the `type` field of the CSV input data so we only have valid structs for processing. The program achieves that using the `TransactionType` enum together with Serde's feature `rename_all = "lowercase"` so the names of the variants are not only consistent with the ones in the data but also comfortably maintainable.
 
-Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a custom function named `decimal_from_string`. It reads the string parsing it as `f64` but returning an instantiated `Decimal` from the `fraction` crate because it promises losless fractions and decimals. This is valuable when there are lots of transactions, which with time it will happen, and `account.held` and `account.total` values can preserve precision. Any further rendering of these values, I'm taking that as a concern of a presentation layer that could, for example, decide later on how many digits to print without making the program loose any precision for its inner math.
+Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a custom function named `decimal_from_string`. It reads the string parsing it as `f64` but returning an instantiated `Decimal` from the `fraction` crate because it promises lossless fractions and decimals. This is valuable when there are lots of transactions, which with time it will happen, and `account.held` and `account.total` values can preserve precision which is specially valuable for values in coins that deal with either monumental or extremely small numerical values. Any further rendering of these values, I'm taking that as a concern of the presentation layer that could, for example, decide later on how many digits to print without making the program loose any precision for its inner math. In this program, `account.render_as_output_line()` is dealing with that.
 
 ## Processing Sequence
 
@@ -100,14 +100,15 @@ process_transactions_from(reader)         │                  │              
 
 1. Input doesn't have headers. Valid input is just data without using the first row for headers.
 2. Valid fields are `type, client, tx, amount` in that order as per specs.
-3. Not considering previous historical state. When instantiating an account for a client, I assumed all quantities were at 0 and the account not locked. To improve this, it would be necessary to access the database where this history is stored and reimplement the function `get_account_for(client_id: OID)`.
-4. Withdrawals cannot be processed on locked accounts.
-5. No operation or transaction will be processed in locked accounts.
+3. Not considering previous historical state for the accounts. When instantiating an account for a client, I'm assuming all quantities are at 0 and the account is not locked. To improve this, it would be necessary to access the database where this history is stored and reimplement the function `get_account_for(client_id: OID)` accordingly.
+4. Nor withdrawals nor deposits can be processed for locked accounts.
+5. No operation or transaction will be processed for locked accounts.
 6. Accounts with insufficient available funds will fail to process raising a `TransactionProcessingError::InsufficientFunds`.
 
 ## Questions
 
-1. What happens if the processing engine receives input to dispute a value greater than what's available? or total?
+1. What happens if the processing engine receives input to dispute a value greater than what's available? or total? Can that happen?
+- R: In the current design, a dispute will be processed when the account has sufficient available funds. When it doesn't, the system produces an `Err(TransactionProcessingError::InsufficientFunds)`, that said, it will never happen because values can *only* be held, for disputes when funds are available.
 2. What happens when a `Transaction` is disputed 2 times? or more than twice.
 - R: Depends, if the dispute is pending, then the second dispute gets ignored. If there are disputes and resolutions in sequence these will be processed normally. If a pending dispute gets a chargeback, the account will stay locked and the engine will ignore input that aims at it.
 3. What happens when a `Transaction` dispute is resolved 2 times? or more than twice.
@@ -119,7 +120,7 @@ process_transactions_from(reader)         │                  │              
 6. What happens when a `Transaction` is repeated (same `TransactionID`, same `ClientID` and _different_ `Amount`)?
 - R: Same answer than 5. 
 7. What happens when the `TransactionID` in a dispute corresponds to a `ClientID` that is not the same? 
-- R: The spec states that the tx in a dispute could not exist and be safely ignored but it doesn't clarify anything about being about a different `ClientID`. In this `PaymentEngine` that is considered invalid input and these cases will be treated as input inconsistencies hence, these transactions will be ignored.
+- R: The spec states that the tx in a dispute could not exist and be safely ignored but it doesn't clarify anything about being about a different `ClientID`. In this `PaymentEngine` that is considered invalid input and these cases will be treated as input inconsistencies potentially coming from a partner's inconcistency hence, these transactions will be ignored (in a real system it should be observed using a pub/sub queue or logged for tracking, diagnosing and generally enabling its resolution).
 
 ## Further contributions and recommendations
 
@@ -127,7 +128,7 @@ To make this processing engine more scalable, streaming the input via a networke
 
 While that brings the efficiency and ability to take advantage of using multi-core CPUs it also carries some added complexity to make that safe.
 
-For example, the structures holding the accounts and transactions, that in this program are `HashMap`s, would need be used behind a protection wall like `Mutex` or `RwLock` to be safe.
+For example, the structures holding the accounts and transactions, that in this program are `HashMap`s, would need to be used behind a protection wall like `Mutex` or `RwLock` to be safe.
 
 Alternatively, these could be reached via a separate networked service shared among client programs all of them growing in different hosts that operations can scale up or down following traffic demands.
 

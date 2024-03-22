@@ -1,6 +1,24 @@
+use csv::{ReaderBuilder, Trim};
 use fraction::Decimal;
 
 use crate::{input_ingestion::get_csv_reader, payments_engine::PaymentsEngine};
+
+#[test]
+fn can_process_input_as_stream_of_bytes() {
+    // The PaymentEngine could work streaming data instead of using input from a CSV file.
+    let data = "deposit, 1, 1, 1.0\ndeposit, 2, 2, 2.0";
+    let reader = ReaderBuilder::new()
+        .has_headers(false)
+        .trim(Trim::All)
+        .delimiter(b',')
+        .from_reader(data.as_bytes());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_streaming_input(reader).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(1));
+    let account = pe.accounts.get(&2).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(2))
+}
 
 #[test]
 fn case1() {
@@ -114,7 +132,7 @@ fn case8() {
 
 #[test]
 fn case9() {
-    // Some deposits and a dispute to one of the accounts but its tx id doesn't belong to the same accoun. 
+    // Some deposits and a dispute to one of the accounts but its tx id doesn't belong to the same accoun.
     // The disputes aimed to an account that refer to transactions that happened in a different account are ignored.
     let reader = get_csv_reader("resources/case-inputs/case9.csv".to_owned());
     let mut pe = PaymentsEngine::default();
@@ -131,4 +149,49 @@ fn case9() {
     assert_eq!(account.total, Decimal::from(3));
     assert_eq!(account.held, Decimal::from(0));
     assert!(!account.locked);
+}
+
+#[test]
+fn case10() {
+    // Two deposits to account 1 and one withdrawal followed by a dispute to that withdrawal and a new deposit.
+    // The dispute on withdrawal has its value held.
+    let reader = get_csv_reader("resources/case-inputs/case10.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(2));
+    assert_eq!(account.total, Decimal::from(3));
+    assert_eq!(account.held, Decimal::from(1));
+    assert!(!account.locked);
+}
+
+#[test]
+fn case11() {
+    // Deposit gets a dispute and then a chargeback.
+    // The value held by the disputed transaction gets subtracted from the total and the account becomes frozen.
+    // All deposits and withdrawals after the account is locked are ignored.
+    let reader = get_csv_reader("resources/case-inputs/case11.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(1));
+    assert_eq!(account.total, Decimal::from(1));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(account.locked);
+}
+
+#[test]
+fn case12() {
+    // Withdrawals gets a dispute and then a chargeback.
+    // The value held by the disputed transaction gets subtracted from the total and the account becomes frozen.
+    // All deposits and withdrawals after the account is locked are ignored.
+    let reader = get_csv_reader("resources/case-inputs/case12.csv".to_owned());
+    let mut pe = PaymentsEngine::default();
+    pe.process_transactions_from(reader.unwrap()).unwrap();
+    let account = pe.accounts.get(&1).unwrap();
+    assert_eq!(account.get_available(), Decimal::from(3));
+    assert_eq!(account.total, Decimal::from(3));
+    assert_eq!(account.held, Decimal::from(0));
+    assert!(account.locked);
 }
