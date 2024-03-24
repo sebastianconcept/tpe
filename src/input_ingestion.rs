@@ -1,24 +1,20 @@
 use std::{
-    env, error, fmt,
+    env,
     fs::{self, File},
 };
+use thiserror::Error;
 
 use csv::{Reader, ReaderBuilder, Trim};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InputAccessError {
+    #[error("argument with the CSV input filename was not found")]
     MissingInputFilename,
+    #[error("file `{0}` was not found")]
     FileNotFound(String),
+    #[error("failed to create deserializer: {0}")]
     UnableToCreateReader(String),
 }
-
-impl fmt::Display for InputAccessError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid input")
-    }
-}
-
-impl error::Error for InputAccessError {}
 
 // We expect to run the program like:
 // cargo run -- transactions.csv > accounts.csv

@@ -1,10 +1,10 @@
-use std::{collections::HashMap, error, fmt};
-
-use crate::models::shared::Amount;
-use fraction::{Decimal, Zero};
-use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 
 use super::shared::{ClientID, TransactionID};
+use crate::{input_ingestion::InputAccessError, models::shared::Amount};
+use fraction::{Decimal, Zero};
+use serde::{Deserialize, Deserializer};
+use thiserror::Error;
 
 // An index to reach transactions by transaction ID
 pub type Transactions = HashMap<TransactionID, Transaction>;
@@ -54,48 +54,28 @@ where
     }
 }
 
+#[derive(Debug, Error)]
 pub enum TransactionDeserializingError {
+    #[error("Unable to parse `{0}` (amount must represent a float)")]
     UnableToParseAmount(String),
+    #[error("Unable to parse `{0}` (amount must be a positive float)")]
     NegativeAmount(String),
 }
 
-impl fmt::Display for TransactionDeserializingError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "amount must be a positive float")
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TransactionProcessingError {
-    InsufficientAvailableFunds((TransactionID, Amount)),
+    #[error("Insufficient available funds to process `{1}` in transaction `{0}`")]
+    InsufficientAvailableFunds(TransactionID, Amount),
+    #[error("Unable to process {0}, target account is locked")]
     TargetAccountLocked(TransactionID),
+    #[error(
+        "Unable to process `{0}`, transaction not found. Assuming partner's data inconsistency."
+    )]
     NotFound(TransactionID),
+    #[error("The targeted account doesn't match the account of the referred transaction")]
     InconsistentOperation,
-}
-impl error::Error for TransactionProcessingError {}
-
-impl fmt::Display for TransactionProcessingError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            TransactionProcessingError::NotFound(tx_id) => {
-                write!(f, "Unable to process {}, transaction not found. Assuming partner's data inconsistency.", tx_id)
-            }
-            TransactionProcessingError::TargetAccountLocked(tx_id) => {
-                write!(f, "Unable to process {}, target account is locked", tx_id)
-            }
-            TransactionProcessingError::InsufficientAvailableFunds((tx_id, val)) => {
-                write!(
-                    f,
-                    "Insufficient available funds to process {:.4} in transaction {}",
-                    val, tx_id
-                )
-            }
-            TransactionProcessingError::InconsistentOperation => {
-                write!(
-                    f,
-                    "The targeted account doesn't match the account of the referred transaction"
-                )
-            }
-        }
-    }
+    #[error("Input deserialization error")]
+    DeserializationError(#[from] TransactionDeserializingError),
+    #[error("Input access error")]
+    InputError(#[from] InputAccessError),
 }

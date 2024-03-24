@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{fs::File, process};
 
 use csv::Reader;
 
@@ -30,15 +30,15 @@ impl PaymentsEngine {
                 Ok(()) => {}
                 Err(TransactionProcessingError::TargetAccountLocked(_tx_id)) => {
                     // Ignore and continue processing the next input operation.
-                    // In a real system tx_id should be logged or published an event to a queue for follow up?
+                    // In a real system tx_id should be logged or published an event to a operation issues queue for follow up?
                 }
                 Err(TransactionProcessingError::NotFound(_tx_id)) => {
                     // Ignore and continue processing the next input operation.
-                    // In a real system tx_id should be logged or published an event to a queue for follow up?
+                    // In a real system tx_id should be logged or published an event to an operation issues queue for follow up?
                 }
-                Err(TransactionProcessingError::InsufficientAvailableFunds(_tx_id)) => {
+                Err(TransactionProcessingError::InsufficientAvailableFunds(_tx_id, _amount)) => {
                     // Ignore and continue processing the next input operation.
-                    // In a real system tx_id should be logged or published an event to a queue for follow up?
+                    // In a real system tx_id should be logged or published an event to an operation issues queue for follow up?
                 }
                 Err(TransactionProcessingError::InconsistentOperation) => {
                     // Note: In a real payment engine, cases like this would typically generate system events
@@ -48,6 +48,15 @@ impl PaymentsEngine {
                     //
                     // For example, should they just re-try after a while? Or, if an operation was inconsistent,
                     // it might require logging or queuing for investigation with a partner.
+                }
+                Err(TransactionProcessingError::DeserializationError(_e)) => {
+                    // Ignore and continue processing the next input operation.
+                    // In a real system the input should be logged or published an event to an operation issues queue for follow up?
+                }
+                Err(TransactionProcessingError::InputError(e)) => {
+                    // No access to input, cannot operate further
+                    println!("{}", e);
+                    process::exit(1)
                 }
             }
         }
@@ -64,18 +73,27 @@ impl PaymentsEngine {
                 Ok(()) => {}
                 Err(TransactionProcessingError::TargetAccountLocked(_tx_id)) => {
                     // Ignore and continue processing the next input operation.
-                    // In a real system tx_id should be logged or published an event to a queue for follow up?
+                    // In a real system tx_id should be logged or published an event to a operation issues queue for follow up?
                 }
                 Err(TransactionProcessingError::NotFound(_tx_id)) => {
                     // Ignore and continue processing the next input operation.
-                    // In a real system tx_id should be logged or published an event to a queue for follow up?
+                    // In a real system tx_id should be logged or published an event to a operation issues queue for follow up?
                 }
-                Err(TransactionProcessingError::InsufficientAvailableFunds(_tx_id)) => {
+                Err(TransactionProcessingError::InsufficientAvailableFunds(_tx_id, _amount)) => {
                     // Ignore and continue processing the next input operation.
-                    // In a real system tx_id should be logged or published an event to a queue for follow up?
+                    // In a real system tx_id should be logged or published an event to a operation issues queue for follow up?
                 }
                 Err(TransactionProcessingError::InconsistentOperation) => {
                     // Note: same observations as noted in `process_transactions_from`
+                }
+                Err(TransactionProcessingError::DeserializationError(_e)) => {
+                    // Ignore and continue processing the next input operation.
+                    // In a real system the input should be logged or published an event to an operation issues queue for follow up?
+                }
+                Err(TransactionProcessingError::InputError(e)) => {
+                    // No access to input, cannot operate further
+                    println!("{}", e);
+                    process::exit(1)
                 }
             }
         }

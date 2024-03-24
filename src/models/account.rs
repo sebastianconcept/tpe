@@ -89,9 +89,9 @@ impl Account {
             Some(val) => {
                 if val > self.get_available() {
                     // Reject processing if there isn't enough available
-                    return Err(TransactionProcessingError::InsufficientAvailableFunds((
+                    return Err(TransactionProcessingError::InsufficientAvailableFunds(
                         tx.tx_id, val,
-                    )));
+                    ));
                 }
                 transactions.entry(tx.tx_id).or_insert_with(|| {
                     // Or, since it's absent, add the withdrawal transaction to the record and update the account total amount 👀
