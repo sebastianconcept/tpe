@@ -46,8 +46,10 @@ impl Account {
 
         // But if not locked, it moves on processing every case
         match tx.tx_type {
-            TransactionType::Deposit => self.process_deposit(tx, transactions)?,
-            TransactionType::Withdrawal => self.process_withdrawal(tx, transactions)?,
+            TransactionType::Deposit(amount) => self.process_deposit(tx, amount, transactions)?,
+            TransactionType::Withdrawal(amount) => {
+                self.process_withdrawal(tx, amount, transactions)?
+            }
             TransactionType::Dispute => self.process_dispute(tx, transactions, disputes)?,
             TransactionType::Resolve => self.process_resolve(tx, transactions, disputes)?,
             TransactionType::Chargeback => self.process_chargeback(tx, transactions, disputes)?,
@@ -58,50 +60,38 @@ impl Account {
     fn process_deposit(
         &mut self,
         tx: Transaction,
+        amount: Amount,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        match tx.amount {
-            None => {
-                unreachable!("There is always a valid amount for deposits")
-            }
-            Some(val) => {
-                // If there is a deposit at tx_id, then ignore the repeated deposit considering it as partner inconsistency 👀
-                transactions.entry(tx.tx_id).or_insert_with(|| {
-                    // Or, since it's absent, add the deposit transaction to the record and update the account total amount 👀
-                    // Note: If already present in transactions, it will be ignored.
-                    self.total += val;
-                    tx
-                });
-                Ok(())
-            }
-        }
+        // If there is a deposit at tx_id, then ignore the repeated deposit considering it as partner inconsistency 👀
+        transactions.entry(tx.tx_id).or_insert_with(|| {
+            // Or, since it's absent, add the deposit transaction to the record and update the account total amount 👀
+            // Note: If already present in transactions, it will be ignored.
+            self.total += amount;
+            tx
+        });
+        Ok(())
     }
 
     fn process_withdrawal(
         &mut self,
         tx: Transaction,
+        amount: Amount,
         transactions: &mut Transactions,
     ) -> Result<(), TransactionProcessingError> {
-        match tx.amount {
-            None => {
-                unreachable!("There is always a valid amount for withdrawals")
-            }
-            Some(val) => {
-                if val > self.get_available() {
-                    // Reject processing if there isn't enough available
-                    return Err(TransactionProcessingError::InsufficientAvailableFunds(
-                        tx.tx_id, val,
-                    ));
-                }
-                transactions.entry(tx.tx_id).or_insert_with(|| {
-                    // Or, since it's absent, add the withdrawal transaction to the record and update the account total amount 👀
-                    // Note: If already present in transactions, it will be ignored.
-                    self.total -= val;
-                    tx
-                });
-                Ok(())
-            }
+        if amount > self.get_available() {
+            // Reject processing if there isn't enough available
+            return Err(TransactionProcessingError::InsufficientAvailableFunds(
+                tx.tx_id, amount,
+            ));
         }
+        transactions.entry(tx.tx_id).or_insert_with(|| {
+            // Or, since it's absent, add the withdrawal transaction to the record and update the account total amount 👀
+            // Note: If already present in transactions, it will be ignored.
+            self.total -= amount;
+            tx
+        });
+        Ok(())
     }
 
     fn process_dispute(
@@ -130,15 +120,16 @@ impl Account {
                 if t.client_id != self.client_id {
                     return Err(TransactionProcessingError::InconsistentOperation);
                 }
-                if let Some(val) = t.amount {
-                    // Disputed, hence add it as pending and increase in val the value held 👀
-                    disputes.entry(tx.tx_id).or_insert(Dispute::from(tx));
-                    self.held += val;
-                } else {
-                    unreachable!(
-                        "There is always a valid amount for transactions aimed by a dispute"
-                    );
+
+                // Disputed, hence add it as pending and increase in the transaction's amount the value held 👀
+                match t.tx_type {
+                    TransactionType::Deposit(amount) => self.held += amount,
+
+                    TransactionType::Withdrawal(amount) => self.held += amount,
+                    _ => return Err(TransactionProcessingError::InconsistentOperation),
                 }
+                // Add this one to the pending (unresolved) disputes record.
+                disputes.entry(tx.tx_id).or_insert(Dispute::from(tx));
                 Ok(())
             }
         }
@@ -159,15 +150,19 @@ impl Account {
         match transactions.get(&tx.tx_id) {
             None => Err(TransactionProcessingError::NotFound(tx.tx_id)),
             Some(t) => {
-                if let Some(val) = t.amount {
-                    // Resolved, hence decrease in val the value held and remove it from pending disputes 👀
-                    self.held -= val;
-                    disputes.remove(&tx.tx_id);
-                } else {
-                    unreachable!(
-                        "There is always a valid amount for transactions aimed by a resolution"
-                    );
+                // Return an error if the referred tx of the given tx has a `ClientID` that is not the one of this account.
+                if t.client_id != self.client_id {
+                    return Err(TransactionProcessingError::InconsistentOperation);
                 }
+
+                // Resolved, hence decrease in the referred transaction's amount the value held and... 👀
+                match t.tx_type {
+                    TransactionType::Deposit(amount) => self.held -= amount,
+                    TransactionType::Withdrawal(amount) => self.held -= amount,
+                    _ => return Err(TransactionProcessingError::InconsistentOperation),
+                }
+                // ...remove it from pending disputes 👀
+                disputes.remove(&tx.tx_id);
                 Ok(())
             }
         }
@@ -191,27 +186,29 @@ impl Account {
                 if t.client_id != self.client_id {
                     return Err(TransactionProcessingError::InconsistentOperation);
                 }
-                if let Some(val) = t.amount {
-                    // Chargeback, hence 👀
-                    // 1. Decrease if deposit or increase if withdrawal the total value in this account by the previously disputed transaction's value.
-                    // 2. Decrease held of that value.
-                    // 3. Freeze the account.
-                    // 4. Remove the dispute from the record of disputes that are pending.
-                    match t.tx_type {
-                        TransactionType::Deposit => self.total -= val,
-                        TransactionType::Withdrawal => self.total += val,
-                        _ => {
-                            unreachable!("No valid case can reach this")
-                        }
+
+                // Chargeback a deposit, hence 👀
+                // 1. Decrease or increase the total value in this account by the previously disputed transaction's value.
+                // 2. Decrease held of that value.
+                // 3. Freeze the account.
+                // 4. Remove the dispute from the record of disputes that are pending.
+                let amount;
+                match t.tx_type {
+                    TransactionType::Deposit(a) => {
+                        // Reverting a deposit, hence decrease total
+                        amount = a;
+                        self.total -= amount;
                     }
-                    self.held -= val;
-                    self.locked = true;
-                    disputes.remove(&tx.tx_id);
-                } else {
-                    unreachable!(
-                        "There is always a valid amount for transactions aimed by a chargeback"
-                    );
+                    TransactionType::Withdrawal(a) => {
+                        // Reverting a withdrawal, hence increase total
+                        amount = a;
+                        self.total += amount;
+                    }
+                    _ => return Err(TransactionProcessingError::InconsistentOperation),
                 }
+                self.held -= amount;
+                self.locked = true;
+                disputes.remove(&tx.tx_id);
                 Ok(())
             }
         }
