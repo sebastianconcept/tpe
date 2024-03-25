@@ -151,4 +151,14 @@ If the requirements are high volume and one host cannot hold all the transaction
 - ~~Add `TransactionProcessingError::InconsistentOperation`. With test case.~~
 - ~~Parsing amount input using `fraction::Decimal::from(input: String)`. Add case.~~
 - ~~Match `TransactionProcessingError` without downcasting boxed dyn errors.~~
+- ~~Explore alternative design based on:~~
+```rust
+pub enum TransactionType {
+    Deposit(Amount),
+    Withdrawal(Amount),
+    Dispute,
+    Resolve,
+    Chargeback,
+}
+```
 - Explore adopting malachite for improved precision.
