@@ -221,13 +221,17 @@ impl Account {
     // as per `Rust Test.pdf`
     pub fn render_as_output_line(&self) {
         let output_line = format!(
-            "{}, {:#.4}, {:#.4}, {:#.4}, {}",
+            "{}, {}, {}, {}, {}",
             self.client_id,
-            self.get_available(),
-            self.held,
-            self.total,
+            get_amount_string_from(&self.get_available()),
+            get_amount_string_from(&self.held),
+            get_amount_string_from(&self.total),
             self.locked
         );
         println!("{}", output_line);
     }
+}
+
+fn get_amount_string_from(amount: &Amount) -> String {
+    format!("{:#.4}", amount)
 }

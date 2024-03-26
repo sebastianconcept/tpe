@@ -12,13 +12,15 @@ Conceptually, `tpe` is a toy but some parts are taken seriously. For example, co
 
 ## Program architecture
 
-The program begins in the `main` function, where it initializes a CSV reader and a custom Serde deserializer to prepare for ingesting valid input data. Next, it creates the `PaymentsEngine` and begins processing transactions using the `process_transactions_from` method. This method utilizes the CSV reader's `DeserializeRecordsIter`, which is configured to deserialize valid `Transaction` structs in a streamed fashion, iterating over them as they become available.
+The program begins in the `main` function, where it initializes a CSV reader and a custom Serde deserializer to prepare for ingesting valid input data. Next, it creates the `PaymentsEngine` and begins processing transactions using the `process_transactions_from` method. This method utilizes the CSV reader's `DeserializeRecordsIter`, which is configured to deserialize valid `Transaction` structs in a **streamed fashion**, iterating over them as they become available. This should be convenient as part of an effort to use this payment engine functionality as a continuous service.
 
 As the whole processing goes on, the accounts are maintained in a consistent state by the `PaymentsEngine` in a `HashMap` and creating entries only on demand.
 
 At the end of the processing, an iteration to render these account entries is what produces the output format as expected.
 
 ## Input assumptions
+
+**Headers are expected in the input as the first row**.
 
 As per exercise specification, `ClientID` is `u16` and `TransactionID` is `u32` while the amount value is a `String` representing a real positive number with 4 digits.
 Any negative amount in the records of the input will be considered as an inconsistency coming from the partner and if such case occurs, the deserializer on the field will return a `None` and the `Reader` will return a specific `Err` that is handled so the processing can continue efficiently.
@@ -31,25 +33,26 @@ Any transaction or operation on a frozen account will be ignored.
 
 Repeated unresolved disputes will be ignored.
 
-The tiniest amount accepted is from the input is `0.0000000000000000001`.
+The specs mention a precision of 4 digits past the decimal but if for any reason a more precise value comes it will be parsed. The tiniest amount accepted for parsing  is `0.0000000000000000001`.
 
 Is expected not to happen by merit of input consistency, but if for any reason a dispute or resolve or chargeback came related to a `ClientID` but the transaction they refer is pointing to another `ClientID` the system will face an `Err(TransactionProcessingError::InconsistentOperation)` and will proceed to ignore it protecting its integrity and continuous operation.
 
 ## Output assumptions
 
-The output is of a well known format for the systems involved and headers are not present.
+
+**Headers are emitted in the output as the first row.**
+
+Comma separated values.
 
 Amounts are rendered as floats printed with 4 digits of precision.
-
-Disputes can only be considered valid when the dispute has a `ClientID` value equal to the one in the disputed transaction.
 
 ## On input digestion
 
 For the deserialization part of digesting input, I've decided to use [Serde](https://github.com/serde-rs/serde) and [csv](https://github.com/BurntSushi/rust-csv) as suggested as they are well known robust and well maintained crates.
 
-For the `Transaction` struct you'll find I've made it derive `Deserialize` but also enforced deserialization correctness on the `type` field of the CSV input data so we only have valid structs for processing. The program achieves that using the `TransactionType` enum together with Serde's feature `rename_all = "lowercase"` so the names of the variants are not only consistent with the ones in the data but also comfortably maintainable.
+For the `Transaction` struct you'll find I've made it derive `Deserialize` but also enforced deserialization correctness on the `type` field of the CSV input data so we only have valid structs for processing. The program achieves that using the `TransactionType` enum together with Serde's feature `rename_all = "lowercase"` and `#[serde(rename = "type")]` so the names of the variants are not only consistent with the ones in the data but also comfortably maintainable in the code.
 
-Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a custom function named `decimal_from_string`. It reads the string parsing it as `f64` but returning an instantiated `Decimal` from the `fraction` crate because it promises lossless fractions and decimals. This is valuable when there are lots of transactions, which with time it will happen, and `account.held` and `account.total` values can preserve precision which is specially valuable for values in coins that deal with either monumental or extremely small numerical values. Any further rendering of these values, I'm taking that as a concern of the presentation layer that could, for example, decide later on how many digits to print without making the program loose any precision for its inner math. In this program, `account.render_as_output_line()` is dealing with that.
+Regarding to parsed numerical values, I've made Serde's `Deserializer` to use a custom function named `decimal_from_string`. It reads the string parsing it as `fraction::Decimal` which has its own `Deserialize` implementation from the `fraction` crate (which is very precise). I've chosen the `fraction` crate because it promises lossless fractions and decimals for its operations. This is valuable when there are lots of transactions, which with time it will happen, and `account.held` and `account.total` values can preserve precision which is specially valuable for values in coins that deal with either monumental or extremely small numerical values. Any further rendering of these values, I'm taking that as a concern of the presentation layer that could, for example, decide later on how many digits to print without making the program loose any precision for its inner math. In this program, `account.render_as_output_line()` is dealing with that.
 
 ## Processing Sequence
 
@@ -100,7 +103,7 @@ process_transactions_from(reader)         │                  │              
 
 ## General design notes
 
-1. Input doesn't have headers. Valid input is just data without using the first row for headers.
+1. Input have headers. Valid input is a first row of headers followed by data about the supported operations in rows.
 2. Valid fields are `type, client, tx, amount` in that order as per specs.
 3. Not considering previous historical state for the accounts. When instantiating an account for a client, I'm assuming all quantities are at 0 and the account is not locked. To improve this, it would be necessary to access the database where this history is stored and reimplement the function `get_account_for(client_id: OID)` accordingly.
 4. Nor withdrawals nor deposits can be processed for locked accounts.

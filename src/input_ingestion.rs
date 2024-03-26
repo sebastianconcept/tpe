@@ -42,7 +42,7 @@ pub fn input_filename() -> Result<String, InputAccessError> {
 
 pub fn get_csv_reader(path: String) -> Result<Reader<File>, InputAccessError> {
     let reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_path(path);
