@@ -219,6 +219,7 @@ impl Account {
 
     // Render this account in its current state following the expected format
     // as per `Rust Test.pdf`
+    // client, available, held, total, locked
     pub fn render_as_output_line(&self) {
         let output_line = format!(
             "{}, {}, {}, {}, {}",
