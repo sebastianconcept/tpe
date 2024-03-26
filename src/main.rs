@@ -2,7 +2,7 @@ use std::error::Error;
 
 use tpe::{
     input_ingestion::{get_csv_reader, input_filename},
-    payments_engine::{self, PaymentsEngine},
+    payments_engine::PaymentsEngine,
 };
 
 fn process_input() -> Result<(), Box<dyn Error>> {
