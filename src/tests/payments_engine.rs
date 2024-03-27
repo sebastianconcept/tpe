@@ -27,8 +27,11 @@ fn case1() {
     let mut pe = PaymentsEngine::default();
     pe.process_transactions_from(reader.unwrap()).unwrap();
     let account = pe.accounts.get(&1).unwrap();
-    assert_eq!(account.get_available(), Decimal::from(1.5));
-    assert_eq!(account.total, Decimal::from(1.5));
+    let expected_available_and_total =
+        Decimal::from("987654321987654.1001") + Decimal::from(2) + Decimal::from(0.0101)
+            - Decimal::from(1.5);
+    assert_eq!(account.get_available(), expected_available_and_total);
+    assert_eq!(account.total, expected_available_and_total);
     assert_eq!(account.held, Decimal::from(0));
     assert!(!account.locked);
 }

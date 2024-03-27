@@ -5,9 +5,9 @@ use crate::models::transaction::{Transaction, TransactionType};
 
 #[test]
 fn can_parse_one_deposit() {
-    let data = "deposit, 1, 1, 1.0\n".to_string();
+    let data = "type, client, tx, amount\ndeposit, 1, 1, 1.0\n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
@@ -20,9 +20,9 @@ fn can_parse_one_deposit() {
 
 #[test]
 fn can_parse_one_deposit_and_one_withdrawal() {
-    let data = "deposit, 1, 1, 1.0\nwithdrawal, 1, 4, 1.5\n".to_string();
+    let data = "type, client, tx, amount\ndeposit, 1, 1, 1.0\nwithdrawal, 1, 4, 1.5\n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
@@ -41,9 +41,9 @@ fn can_parse_one_deposit_and_one_withdrawal() {
 
 #[test]
 fn can_parse_one_deposit_with_negative_ammount() {
-    let data = "deposit, 1, 1, -1.0\n".to_string();
+    let data = "type, client, tx, amount\ndeposit, 1, 1, -1.0\n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
@@ -52,9 +52,9 @@ fn can_parse_one_deposit_with_negative_ammount() {
 
 #[test]
 fn can_parse_one_deposit_and_one_dispute_on_it() {
-    let data = "deposit, 1, 1, 1.0\ndispute, 1, 1, \n".to_string();
+    let data = "type, client, tx, amount\ndeposit, 1, 1, 1.0\ndispute, 1, 1, \n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
@@ -73,9 +73,9 @@ fn can_parse_one_deposit_and_one_dispute_on_it() {
 
 #[test]
 fn can_parse_one_deposit_and_one_dispute_and_one_resolve_on_it() {
-    let data = "deposit, 1, 1, 1.0\ndispute, 1, 1, \nresolve, 1, 1, \n".to_string();
+    let data = "type, client, tx, amount\ndeposit, 1, 1, 1.0\ndispute, 1, 1, \nresolve, 1, 1, \n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());
@@ -101,9 +101,9 @@ fn can_parse_one_deposit_and_one_dispute_and_one_resolve_on_it() {
 
 #[test]
 fn can_parse_one_deposit_and_one_dispute_then_a_chargeback() {
-    let data = "deposit, 1, 1, 1.0\ndispute, 1, 1, \nchargeback, 1, 1, \n".to_string();
+    let data = "type, client, tx, amount\ndeposit, 1, 1, 1.0\ndispute, 1, 1, \nchargeback, 1, 1, \n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .trim(Trim::All)
         .delimiter(b',')
         .from_reader(data.as_bytes());

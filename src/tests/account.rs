@@ -5,11 +5,12 @@ use crate::models::transaction::Transaction;
 
 #[test]
 fn ignore_repeated_deposit() {
-    let data = "deposit, 328, 56, 1.3\ndeposit, 328, 56, 2.6\n".to_string();
+    let data =
+        "type, client, tx, amount\ndeposit, 328, 56, 1.3\ndeposit, 328, 56, 2.6\n".to_string();
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
         .trim(Trim::All)
         .delimiter(b',')
+        .has_headers(true)
         .from_reader(data.as_bytes());
     let deposit = reader.deserialize::<Transaction>().next().unwrap().unwrap();
 
